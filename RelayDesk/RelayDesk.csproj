@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <Version>0.10.1</Version>
+    <InformationalVersion>0.10.1-dialog-theme</InformationalVersion>
+    <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
+    <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="Apply-Update.ps1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
+    <None Update="Remove-Startup.ps1" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/>
+    <AssemblyMetadata Include="GitHubRepository" Value="$(GitHubRepository)"/>
+  </ItemGroup>
+
+</Project>

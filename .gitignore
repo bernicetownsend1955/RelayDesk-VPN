@@ -1,0 +1,11 @@
+bin/
+obj/
+dist*/
+release/
+user-config/
+installer/tools/
+installer/output/
+*.user
+*.log
+*.pfx
+*.key

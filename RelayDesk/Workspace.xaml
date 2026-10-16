@@ -1,0 +1,726 @@
+<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="RelayDesk.Workspace" Background="{DynamicResource Page}" Foreground="{DynamicResource Ink}" FontSize="14" Tag="layout-v3">
+ <Grid Margin="20">
+  <Grid.ColumnDefinitions>
+   <ColumnDefinition Width="220" />
+   <ColumnDefinition Width="28" />
+   <ColumnDefinition Width="*" />
+  </Grid.ColumnDefinitions>
+  <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,0,4,0">
+   <DockPanel MinHeight="{Binding ViewportHeight, RelativeSource={RelativeSource AncestorType=ScrollViewer}}">
+    <StackPanel DockPanel.Dock="Top">
+     <TextBlock Text="RelayDesk" FontSize="23" FontWeight="SemiBold" />
+     <TextBlock Text="VPN и обход DPI" Style="{StaticResource Caption}" Margin="0,5,0,20" />
+     <ListBox SelectedIndex="{Binding SelectedIndex, ElementName=Tabs, Mode=TwoWay}" Margin="0,0,0,18" x:Name="Navigation">
+      <ListBoxItem AutomationProperties.Name="Панель" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M2,2 L8,2 L8,8 L2,8 Z M12,2 L18,2 L18,8 L12,8 Z M2,12 L8,12 L8,18 L2,18 Z M12,12 L18,12 L18,18 L12,18 Z" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Панель" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Настройки" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M2,5 L18,5 M2,15 L18,15 M6,2 L6,8 M14,12 L14,18" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Настройки" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Конфигурация" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M7,3 L2,10 L7,17 M13,3 L18,10 L13,17" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Конфигурация" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Ядра" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M3,3 L17,3 L17,17 L3,17 Z M7,7 L13,7 L13,13 L7,13 Z" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Ядра" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Автоматика" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M3,5 L16,5 L12,1 M17,15 L4,15 L8,19" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Автоматика" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Импорт приложений" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M10,2 L10,13 M5,8 L10,13 L15,8 M3,15 L3,18 L17,18 L17,15" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Импорт приложений" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Обновления" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M3,7 A7,7 0 1 1 3,14 M3,2 L3,7 L8,7" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Обновления" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+      <ListBoxItem AutomationProperties.Name="Соединения" Padding="12,8" Margin="0,0,0,2">
+       <StackPanel Orientation="Horizontal">
+        <Path Data="M2,5 L8,5 L8,11 L2,11 Z M12,9 L18,9 L18,15 L12,15 Z M8,8 L12,12" Stroke="{DynamicResource Muted}" StrokeThickness="1.4" Width="17" Height="17" Stretch="Uniform" Margin="0,0,12,0" />
+        <TextBlock Text="Соединения" VerticalAlignment="Center" />
+       </StackPanel>
+      </ListBoxItem>
+     </ListBox>
+    </StackPanel>
+    <StackPanel DockPanel.Dock="Bottom">
+     <DockPanel Margin="0,26,0,10">
+      <Button Content="+" Click="NewProfile" DockPanel.Dock="Right" Padding="10,3" ToolTip="Создать профиль" />
+      <TextBlock Text="ПРОФИЛИ" FontSize="11" VerticalAlignment="Center" />
+     </DockPanel>
+     <ListBox x:Name="ProfileList" SelectionChanged="ProfileSelected" MaxHeight="96">
+      <ListBox.ItemTemplate>
+       <DataTemplate>
+        <StackPanel>
+         <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" />
+         <TextBlock Text="{Binding Core}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+        </StackPanel>
+       </DataTemplate>
+      </ListBox.ItemTemplate>
+     </ListBox>
+     <Button Content="Вставить из буфера" Click="Paste" Style="{StaticResource Primary}" Margin="0,12,0,0" />
+     <Button Content="Импортировать файл" Click="ImportFile" Margin="0,6,0,0" />
+     <Border Height="1" Background="{DynamicResource Line}" Margin="0,18,0,10" />
+     <TextBlock Text="Оформление" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+     <ComboBox x:Name="ThemeChoice" SelectionChanged="ThemeChanged" />
+    </StackPanel>
+    <Border />
+   </DockPanel>
+  </ScrollViewer>
+  <Grid Grid.Column="2" x:Name="ContentGrid">
+   <Grid.RowDefinitions>
+    <RowDefinition Height="Auto" />
+    <RowDefinition Height="Auto" />
+    <RowDefinition Height="*" />
+    <RowDefinition Height="8" />
+    <RowDefinition Height="180" />
+   </Grid.RowDefinitions>
+   <DockPanel Margin="0,0,0,12">
+    <Button Content="Остановить всё" DockPanel.Dock="Right" Click="StopAllClick" VerticalAlignment="Top" />
+    <StackPanel>
+     <TextBlock Text="Панель" FontSize="27" FontWeight="SemiBold" x:Name="PageTitle" />
+     <TextBlock x:Name="OverallStatus" Text="Процессы не запущены" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+    </StackPanel>
+   </DockPanel>
+   <StackPanel Grid.Row="1">
+   <Border x:Name="AppReleaseBanner" Visibility="Collapsed" BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource Selected}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+    <DockPanel>
+     <Button x:Name="InstallAppBannerButton" Content="Установить" Click="InstallAppClick" DockPanel.Dock="Right" Margin="14,0,0,0" Style="{StaticResource Primary}" VerticalAlignment="Center" />
+     <StackPanel><TextBlock x:Name="AppReleaseTitle" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock x:Name="AppReleaseSummary" Style="{StaticResource Caption}" Margin="0,5,0,0"/></StackPanel>
+    </DockPanel>
+   </Border>
+   <Border x:Name="UpdateBanner" Visibility="Collapsed" BorderBrush="{DynamicResource Line}" BorderThickness="1" Background="{DynamicResource Selected}" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+    <DockPanel>
+     <Button Content="Посмотреть обновления" Click="OpenUpdatesClick" DockPanel.Dock="Right" Padding="10,6" />
+     <TextBlock x:Name="UpdateNotice" TextWrapping="Wrap" VerticalAlignment="Center" />
+    </DockPanel>
+   </Border>
+   </StackPanel>
+   <TabControl x:Name="Tabs" Grid.Row="2" SelectionChanged="MainTabChanged" Style="{StaticResource WorkspaceTabs}">
+    <TabItem Header="Панель">
+     <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel>
+       <Border x:Name="SetupBanner" Style="{StaticResource Panel}" Margin="0,0,0,18" Visibility="Collapsed">
+        <StackPanel>
+         <TextBlock Text="Подготовь подключение" FontSize="20" FontWeight="SemiBold" />
+         <TextBlock Text="1. Установи sing-box для VPN и Flowseal для zapret.&#10;2. Вставь ссылку или импортируй свой JSON.&#10;3. Включи VPN и zapret нужными кнопками." Style="{StaticResource Caption}" Margin="0,8,0,14" />
+         <Button Content="Настроить ядра" Click="SetupComponentsClick" HorizontalAlignment="Left" Style="{StaticResource Primary}" />
+         <TextBlock Text="Приложение скачает ядра из официальных источников после подтверждения и сохранит пути автоматически." Style="{StaticResource Caption}" Margin="0,10,0,0" />
+        </StackPanel>
+       </Border>
+       <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="0,12,0,22">
+        <StackPanel>
+         <TextBlock x:Name="ServerTitle" Text="Выбери профиль" FontSize="23" FontWeight="SemiBold" TextWrapping="Wrap" />
+         <TextBlock x:Name="ServerDescription" Style="{StaticResource Caption}" Margin="0,6,0,0" />
+        </StackPanel>
+       </Border>
+       <Grid Margin="0,22,0,18">
+        <Grid.ColumnDefinitions>
+         <ColumnDefinition />
+         <ColumnDefinition Width="16" />
+         <ColumnDefinition />
+        </Grid.ColumnDefinitions>
+        <Border Style="{StaticResource Panel}">
+         <StackPanel HorizontalAlignment="Stretch">
+          <TextBlock Text="Обход DPI" Style="{StaticResource Caption}" Margin="0,0,0,14" />
+          <Button x:Name="StartZapretButton" Click="ToggleZapretClick" Style="{StaticResource ConnectionPower}" AutomationProperties.Name="zapret">
+           <StackPanel>
+            <Path Data="M 12,2 L 12,12 M 6,5 A 9,9 0 1 0 18,5" Width="32" Height="34" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" Margin="0,0,0,12" />
+            <TextBlock Text="zapret" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+           </StackPanel>
+          </Button>
+          <TextBlock x:Name="ZapretState" Text="Остановлен" Margin="0,16,0,4" />
+          <TextBlock x:Name="ZapretAction" Text="Нажми, чтобы включить" Style="{StaticResource Caption}" />
+          <Button Content="Настроить zapret" Click="OpenZapretSettings" Margin="0,16,0,0" Padding="12,7" />
+         </StackPanel>
+        </Border>
+        <Border Style="{StaticResource Panel}" Grid.Column="2">
+         <StackPanel HorizontalAlignment="Stretch">
+          <TextBlock Text="Прокси / TUN" Style="{StaticResource Caption}" Margin="0,0,0,14" />
+          <Button x:Name="ConnectButton" Click="ToggleVpnClick" Style="{StaticResource ConnectionPower}" AutomationProperties.Name="VPN">
+           <StackPanel>
+            <Path Data="M 12,2 L 21,6 L 21,13 C 21,19 16,23 12,25 C 8,23 3,19 3,13 L 3,6 Z" Width="30" Height="36" Stretch="Uniform" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.6" Margin="0,0,0,10" />
+            <TextBlock Text="VPN" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center" />
+           </StackPanel>
+          </Button>
+          <TextBlock x:Name="ProxyState" Text="Отключено" Margin="0,16,0,4" TextWrapping="Wrap" />
+          <TextBlock x:Name="VpnAction" Text="Нажми, чтобы включить" Style="{StaticResource Caption}" />
+          <Button Content="Настроить VPN" Click="OpenVpnSettings" Margin="0,16,0,0" Padding="12,7" />
+         </StackPanel>
+        </Border>
+       </Grid>
+       <Border Style="{StaticResource Panel}" Margin="0,8,0,0">
+        <Grid>
+         <Grid.ColumnDefinitions>
+          <ColumnDefinition />
+          <ColumnDefinition Width="20" />
+          <ColumnDefinition />
+         </Grid.ColumnDefinitions>
+         <DockPanel>
+          <Button x:Name="TcpButton" Content="Проверить TCP" Click="TcpClick" DockPanel.Dock="Right" Padding="10,8" />
+          <StackPanel>
+           <TextBlock Text="TCP до сервера" />
+           <TextBlock x:Name="TcpResult" Text="Не проверено" Style="{StaticResource Caption}" Margin="0,6,8,0" />
+          </StackPanel>
+         </DockPanel>
+         <DockPanel Grid.Column="2">
+          <Button x:Name="HttpsButton" Content="Проверить HTTPS" Click="HttpsClick" DockPanel.Dock="Right" Padding="10,8" />
+          <StackPanel>
+           <TextBlock Text="HTTPS через прокси" />
+           <TextBlock x:Name="HttpsResult" Text="Не проверено" Style="{StaticResource Caption}" Margin="0,6,8,0" />
+          </StackPanel>
+         </DockPanel>
+        </Grid>
+       </Border>
+       <TextBlock x:Name="ActionMessage" Margin="0,14,0,10">
+        <TextBlock.Style>
+         <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+          <Style.Triggers>
+           <Trigger Property="Text" Value="">
+            <Setter Property="Visibility" Value="Collapsed" />
+           </Trigger>
+          </Style.Triggers>
+         </Style>
+        </TextBlock.Style>
+       </TextBlock>
+      </StackPanel>
+     </ScrollViewer>
+    </TabItem>
+    <TabItem Header="Настройки">
+     <DockPanel LastChildFill="True" Margin="0,12,0,0">
+      <TextBlock Text="Параметры профиля" FontSize="21" FontWeight="SemiBold" DockPanel.Dock="Top" />
+      <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
+       <WrapPanel Margin="0,22,0,0">
+        <Button Content="Сохранить настройки" Click="SaveClick" Style="{StaticResource Primary}" />
+        <Button Content="Удалить профиль" Click="DeleteClick" Margin="8,0,0,0" />
+       </WrapPanel>
+      </StackPanel>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+       <StackPanel Margin="0,12,14,0">
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="Профиль" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+          <Grid>
+           <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition Width="18" />
+            <ColumnDefinition />
+           </Grid.ColumnDefinitions>
+           <StackPanel>
+            <TextBlock Text="Название" Style="{StaticResource Label}" />
+            <TextBox x:Name="ProfileName" />
+           </StackPanel>
+           <StackPanel Grid.Column="2">
+            <TextBlock Text="Ядро" Style="{StaticResource Label}" />
+            <ComboBox x:Name="CoreChoice" />
+           </StackPanel>
+          </Grid>
+          <TextBlock x:Name="SettingsHint" Style="{StaticResource Caption}" Margin="0,12,0,0" />
+         </StackPanel>
+        </Border>
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="Подключение" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+          <CheckBox x:Name="AutoCandidate" Content="Участвует в автоматическом выборе сервера" />
+          <Border Background="{DynamicResource Page}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="14" Margin="0,14,0,8">
+           <StackPanel>
+            <CheckBox x:Name="Tun" Content="TUN: подключать приложения без настройки прокси" Style="{StaticResource Switch}" Margin="0" Click="TunModeChanged" />
+            <TextBlock Text="Виртуальный сетевой адаптер перехватывает трафик приложений. Правила профиля определяют, что идёт через VPN, а что напрямую. Нужны права администратора." Style="{StaticResource Caption}" Margin="0,8,0,0" />
+            <TextBlock x:Name="TunModeHint" Style="{StaticResource Caption}" Margin="0,8,0,0" />
+            <Button x:Name="EditTunJson" Content="Настроить TUN в JSON" Click="EditTunJsonClick" HorizontalAlignment="Left" Margin="0,10,0,0" Padding="10,6" Visibility="Collapsed" />
+           </StackPanel>
+          </Border>
+          <StackPanel x:Name="ManagedFields">
+           <Grid>
+            <Grid.ColumnDefinitions>
+             <ColumnDefinition />
+             <ColumnDefinition Width="16" />
+             <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+             <TextBlock Text="DNS / IP-адрес" Style="{StaticResource Label}" />
+             <TextBox x:Name="Dns" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+             <TextBlock Text="Локальный порт HTTP / SOCKS" Style="{StaticResource Label}" />
+             <TextBox x:Name="LocalPort" />
+            </StackPanel>
+           </Grid>
+          </StackPanel>
+          <StackPanel x:Name="RawFields">
+           <TextBlock Text="Локальный вход для HTTPS и системного прокси" Style="{StaticResource Label}" />
+           <TextBox x:Name="ProxyAddress" />
+           <TextBlock Text="Адрес должен совпадать с HTTP / SOCKS5-входом в конфигурации. Для системного прокси нужен HTTP." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+           <Grid>
+            <Grid.ColumnDefinitions>
+             <ColumnDefinition />
+             <ColumnDefinition Width="16" />
+             <ColumnDefinition Width="140" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+             <TextBlock Text="Сервер для TCP (если в конфигурации несколько)" Style="{StaticResource Label}" />
+             <TextBox x:Name="TcpHost" />
+            </StackPanel>
+            <StackPanel Grid.Column="2">
+             <TextBlock Text="Порт TCP" Style="{StaticResource Label}" />
+             <TextBox x:Name="TcpPort" />
+            </StackPanel>
+           </Grid>
+          </StackPanel>
+          <CheckBox x:Name="SystemProxy" Content="Включать системный HTTP-прокси при подключении" />
+          <TextBlock Text="Прежние настройки восстанавливаются при отключении и закрытии программы." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+         </StackPanel>
+        </Border>
+        <Border Style="{StaticResource Panel}" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="Запуск вместе с Windows" FontSize="17" FontWeight="SemiBold"/>
+          <CheckBox x:Name="WindowsStartupToggle" Content="Запускать RelayDesk при входе в Windows" Style="{StaticResource Switch}"/>
+          <CheckBox x:Name="StartupVpnToggle" Content="Автоматически включать VPN"/>
+          <CheckBox x:Name="StartupZapretToggle" Content="Автоматически включать zapret"/>
+          <TextBlock Text="Профиль VPN для автозапуска" Style="{StaticResource Label}"/>
+          <ComboBox x:Name="StartupProfileChoice"/>
+          <TextBlock Text="Запуск через 15 секунд после входа в твою учётную запись, с правами администратора. Пароль не сохраняется. Подключение — после появления сети, по сохранённой стратегии. Автовыбор сервера учитывается, если включён." Style="{StaticResource Caption}" Margin="0,10,0,12"/>
+          <Button Content="Сохранить автозапуск" Click="SaveStartupClick" HorizontalAlignment="Left"/>
+          <TextBlock x:Name="StartupStatus" Text="Автозапуск выключен." Style="{StaticResource Caption}" Margin="0,10,0,0"/>
+         </StackPanel>
+        </Border>
+        <Border Style="{StaticResource Panel}" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="Экспериментальные функции" FontSize="17" FontWeight="SemiBold" />
+          <CheckBox x:Name="ExperimentalFeatures" Content="Включить диагностику и запрос исправлений" Checked="ExperimentalFeaturesClick" Unchecked="ExperimentalFeaturesClick" Style="{StaticResource Switch}" />
+          <TextBlock Text="Открывает настройки ВДС, отправку журналов и запрос исправлений. По умолчанию выключено. Локальный журнал работает независимо." Style="{StaticResource Caption}" Margin="0,8,0,0" />
+         </StackPanel>
+        </Border>
+        <Expander x:Name="ExperimentalDiagnostics" Header="Диагностика и исправления" Visibility="Collapsed" Margin="0,0,0,14">
+         <StackPanel Margin="0,14,0,0">
+          <TextBlock Text="Журналы и исправления" FontSize="21" FontWeight="SemiBold" />
+          <TextBlock Text="Журнал хранится 14 дней, до 4 МБ в сутки. Перед записью скрываются известные форматы ссылок, паролей и ключей. Профили и JSON не отправляются. Произвольный текст ошибки может содержать другие личные данные." Style="{StaticResource Caption}" Margin="0,8,0,16" />
+          <StackPanel Margin="0,10,0,0">
+           <TextBlock x:Name="SupportStatus" Text="Подключение к ВДС ещё не настроено. Провайдер нейросети будет выбран отдельно." TextWrapping="Wrap" />
+          </StackPanel>
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Сервер и отправка журналов" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <TextBlock Text="IP ВДС" />
+            <TextBox x:Name="SupportHost" Margin="0,6,0,12" />
+            <TextBlock Text="Токен сервера (хранится под защитой учётной записи Windows)" />
+            <PasswordBox x:Name="SupportToken" Margin="0,6,0,12" Padding="8" Background="{DynamicResource Surface}" Foreground="{DynamicResource Ink}" BorderBrush="{DynamicResource Line}" BorderThickness="1" />
+            <CheckBox x:Name="AutoSupport" Content="Отправлять журнал каждые 15 минут через SSH" />
+            <TextBlock Text="SSH использует твой ключ Windows и проверяет известный ключ ВДС. Сервер доступен через туннель, открывать публичный порт не требуется." Style="{StaticResource Caption}" Margin="0,8,0,12" />
+            <WrapPanel>
+             <Button Content="Сохранить" Click="SupportSave" />
+             <Button Content="Отправить журнал" Click="SendSupport" Margin="8,0,0,0" />
+            </WrapPanel>
+           </StackPanel>
+          </Border>
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Запрос исправления" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <TextBlock Text="Что нужно исправить" Margin="0,24,0,6" />
+            <TextBox x:Name="SupportIssue" AcceptsReturn="True" Height="90" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" />
+            <WrapPanel Margin="0,12,0,12">
+             <Button Content="Запросить исправление" Click="RequestRepair" />
+             <Button Content="Проверить статус" Click="CheckRepair" Margin="8,0,0,0" />
+             <Button x:Name="DownloadRepairButton" Content="Скачать сборку" Click="DownloadRepair" IsEnabled="False" Margin="8,0,0,0" />
+            </WrapPanel>
+           </StackPanel>
+          </Border>
+         </StackPanel>
+        </Expander>
+       </StackPanel>
+      </ScrollViewer>
+     </DockPanel>
+    </TabItem>
+    <TabItem Header="Конфигурация">
+     <Grid>
+      <Grid.RowDefinitions>
+       <RowDefinition Height="Auto" />
+       <RowDefinition />
+       <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+      <StackPanel>
+       <TextBlock Text="Конфигурация" FontSize="21" FontWeight="SemiBold" Margin="0,0,0,8" />
+       <TextBlock x:Name="ConfigHint" Style="{StaticResource Caption}" Margin="0,0,0,12" />
+      </StackPanel>
+      <TextBox x:Name="ConfigEditor" Grid.Row="1" FontFamily="Consolas" FontSize="13" AcceptsReturn="True" AcceptsTab="True" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" />
+      <WrapPanel Grid.Row="2" Margin="0,12,0,0">
+       <Button Content="Сохранить JSON / текст" Click="SaveConfigClick" />
+       <Button x:Name="CheckButton" Content="Проверить ядром" Click="CheckClick" Margin="8,0,0,0" />
+       <Button Content="Экспортировать" Click="ExportClick" Margin="8,0,0,0" />
+      </WrapPanel>
+     </Grid>
+    </TabItem>
+    <TabItem Header="Ядра">
+     <DockPanel LastChildFill="True" Margin="0,12,0,0">
+      <TextBlock Text="Исполняемые файлы" FontSize="21" FontWeight="SemiBold" DockPanel.Dock="Top" />
+      <TextBlock Text="Выбери EXE в распакованном дистрибутиве ядра. Зависимости оставь рядом с ним." Style="{StaticResource Caption}" Margin="0,8,0,0" DockPanel.Dock="Top" />
+      <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
+       <Button Content="Сохранить пути и стратегию" Click="SaveEnginesClick" HorizontalAlignment="Left" Margin="0,18,0,0" />
+      </StackPanel>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+       <StackPanel Margin="0,12,14,0">
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="VPN / sing-box" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+          <TextBlock Text="sing-box (для импорта ссылок — 1.12 или новее)" Style="{StaticResource Label}" />
+          <DockPanel>
+           <Button Content="Выбрать" Click="BrowseSing" DockPanel.Dock="Right" Margin="8,0,0,0" />
+           <TextBox x:Name="SingExe" />
+          </DockPanel>
+         </StackPanel>
+        </Border>
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="zapret / winws" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+          <TextBlock Text="zapret / winws.exe" Style="{StaticResource Label}" />
+          <DockPanel>
+           <Button Content="Выбрать" Click="BrowseZapret" DockPanel.Dock="Right" Margin="8,0,0,0" />
+           <TextBox x:Name="ZapretExe" />
+          </DockPanel>
+          <TextBlock Text="Стратегия winws: один аргумент на строку" Style="{StaticResource Label}" />
+          <Expander Header="Аргументы winws вручную" IsExpanded="False" Margin="0,12,0,0" Foreground="{DynamicResource Ink}">
+           <TextBox x:Name="ZapretArgs" Height="150" FontFamily="Consolas" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0" />
+          </Expander>
+          <TextBlock Text="Без BAT-команд и внешних кавычек. Относительные пути считаются от папки EXE. Не направляй один поток одновременно в конфликтующие правила TUN и WinDivert." Style="{StaticResource Caption}" Margin="0,8,0,0" />
+         </StackPanel>
+        </Border>
+        <Expander Header="Дополнительные ядра: Xray и mihomo" IsExpanded="False" Margin="0,0,0,14">
+         <StackPanel Margin="0,12,0,0">
+          <TextBlock Text="Xray" Style="{StaticResource Label}" />
+          <DockPanel>
+           <Button Content="Выбрать" Click="BrowseXray" DockPanel.Dock="Right" Margin="8,0,0,0" />
+           <TextBox x:Name="XrayExe" />
+          </DockPanel>
+          <TextBlock Text="mihomo" Style="{StaticResource Label}" />
+          <DockPanel>
+           <Button Content="Выбрать" Click="BrowseMihomo" DockPanel.Dock="Right" Margin="8,0,0,0" />
+           <TextBox x:Name="MihomoExe" />
+          </DockPanel>
+         </StackPanel>
+        </Expander>
+       </StackPanel>
+      </ScrollViewer>
+     </DockPanel>
+    </TabItem>
+    <TabItem Header="Автоматика">
+     <DockPanel>
+      <TextBlock Text="Выбор сервера и разделение трафика" FontSize="21" FontWeight="SemiBold" DockPanel.Dock="Top" />
+      <StackPanel DockPanel.Dock="Bottom">
+       <WrapPanel Margin="0,18,0,12">
+        <Button Content="Сохранить автоматику" Click="SaveAutomationClick" Style="{StaticResource Primary}" />
+        <Button Content="Проверить Discord" Click="AuditDiscordClick" Margin="8,0,0,0" />
+        <Button Content="Проверить серверы" Click="MeasureServersClick" Margin="8,0,0,0" />
+        <Button Content="Отменить проверку" Click="CancelAutomationClick" Margin="8,0,0,0" />
+       </WrapPanel>
+       <TextBlock x:Name="AutomationStatus" Style="{StaticResource Caption}" Text="Проверки не выполнялись." />
+       <ListBox x:Name="AutomationResults" MaxHeight="280" Margin="0,12,0,0" />
+      </StackPanel>
+      <TabControl x:Name="AutomationTabs">
+       <TabItem Header="Маршруты">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="0,14,14,0">
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Автоматический режим" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <CheckBox x:Name="ConditionalRouting" Content="Менять правила по состоянию VPN и zapret" Click="ConditionalRoutingChanged" />
+            <TextBlock Text="Только zapret — без ограничения приложениями и доменами; VPN + zapret — Discord и выбранные EXE напрямую, остальное по профилю; только VPN — исходный профиль. Переключение перезапускает процессы и может прервать соединения. Обработка zapret зависит от протокола и стратегии." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+            <CheckBox x:Name="WithZapret" Content="Запускать zapret вместе с VPN" />
+            <TextBlock Text="Без этого флажка две кнопки работают независимо. Отключение VPN оставляет zapret включённым." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+           </StackPanel>
+          </Border>
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Ручные правила" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <TextBlock x:Name="RoutingControlsHint" Style="{StaticResource Caption}" Margin="0,12,0,8" />
+            <Button x:Name="ManualRoutingButton" Content="Перейти к ручной настройке" Click="ManualRoutingClick" HorizontalAlignment="Left" Margin="0,0,0,8" />
+            <CheckBox x:Name="DiscordSplit" Content="Discord — напрямую с zapret, остальное — через VPN" />
+            <TextBlock Text="Режим включает TUN при подключении профиля из ссылки. Процессы Discord и его домены идут напрямую; фильтры zapret задаются ниже. Нужны права администратора." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+            <CheckBox x:Name="DiscordOnly" Content="Ограничить zapret доменами Discord и указанными IP голоса" />
+            <TextBlock Text="Выбранные приложения: обходить VPN по полному пути EXE" Style="{StaticResource Label}" />
+            <ListBox x:Name="ApplicationList" Height="100" BorderBrush="{DynamicResource Line}" BorderThickness="1" />
+            <WrapPanel Margin="0,8,0,0">
+             <Button Content="Добавить EXE" Click="AddApplicationClick" />
+             <Button Content="Убрать выбранное" Click="RemoveApplicationClick" Margin="8,0,0,0" />
+            </WrapPanel>
+            <TextBlock Text="Эти правила выводят приложения из VPN при включённом разделении. Они не привязывают winws к EXE: zapret по-прежнему ограничен доменами/IP. Строгая фильтрация zapret по процессам пока не реализована." Style="{StaticResource Caption}" Margin="0,8,0,0" />
+           </StackPanel>
+          </Border>
+         </StackPanel>
+        </ScrollViewer>
+       </TabItem>
+       <TabItem Header="Серверы">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="0,14,14,0">
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Выбор при подключении" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <CheckBox x:Name="AutoServer" Content="При подключении выбирать сервер по HTTPS" />
+            <TextBlock Text="Три запроса через каждый отмеченный сервер sing-box; нужны два ответа 2xx. Выбирается наименьшая медиана. После подключения сервер сам не меняется." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+            <TextBlock Text="URL проверки HTTPS" Style="{StaticResource Label}" />
+            <TextBox x:Name="TestUrl" />
+           </StackPanel>
+          </Border>
+         </StackPanel>
+        </ScrollViewer>
+       </TabItem>
+       <TabItem Header="Стратегии">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="0,14,14,0">
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Подбор стратегии" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <CheckBox x:Name="AutoZapret" Content="Перед подключением проверять Discord и подбирать стратегию" />
+            <TextBlock Text="Проверка использует обычный Ethernet/Wi-Fi для тестовых соединений. Рабочий VPN можно оставить включённым. Перед сравнением останови только zapret." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+            <TextBlock Text="Стратегии: название, затем DPI-аргументы. Между стратегиями — строка ---" Style="{StaticResource Label}" />
+            <Button Content="Загрузить TCP-стратегии Flowseal" Click="LoadFlowsealClick" HorizontalAlignment="Left" Margin="0,0,0,8" />
+            <ComboBox x:Name="FlowsealChoice" DisplayMemberPath="Name" Margin="0,0,0,8" />
+            <Button Content="Применить выбранную TCP-стратегию" Click="ApplyFlowsealClick" HorizontalAlignment="Left" Margin="0,0,0,8" />
+            <Expander Header="Параметры стратегий (дополнительно)" IsExpanded="False" Margin="0,12,0,0" Foreground="{DynamicResource Ink}">
+             <TextBox x:Name="StrategyList" Height="170" AcceptsReturn="True" FontFamily="Consolas" VerticalScrollBarVisibility="Auto" Margin="0,12,0,0" />
+            </Expander>
+           </StackPanel>
+          </Border>
+         </StackPanel>
+        </ScrollViewer>
+       </TabItem>
+       <TabItem Header="Голос">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+         <StackPanel Margin="0,14,14,0">
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Голосовые адреса" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <TextBlock Text="IP / CIDR голосовых серверов Discord, по одному на строку" Style="{StaticResource Label}" />
+            <TextBox x:Name="VoiceCidrs" Height="70" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" />
+            <TextBlock Text="Без этих IP zapret обрабатывает только TLS доменов Discord. Голосовые IP нельзя получить из HTTPS-пинга; укажи их из текущей сессии. UDP ограничен этими адресами и портами 50000–65535. Это фильтрация по трафику, не по имени приложения." Style="{StaticResource Caption}" Margin="0,6,0,0" />
+           </StackPanel>
+          </Border>
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+           <StackPanel>
+            <TextBlock Text="Проверка UDP" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+            <TextBlock Text="Для проверки UDP IP discovery можно указать endpoint и SSRC текущей голосовой сессии. Без них голос останется непроверенным; передача аудио не тестируется." Style="{StaticResource Caption}" Margin="0,16,0,0" />
+            <Grid>
+             <Grid.ColumnDefinitions>
+              <ColumnDefinition />
+              <ColumnDefinition Width="12" />
+              <ColumnDefinition Width="150" />
+             </Grid.ColumnDefinitions>
+             <StackPanel>
+              <TextBlock Text="Голосовой endpoint / IP:порт" Style="{StaticResource Label}" />
+              <TextBox x:Name="VoiceEndpoint" />
+             </StackPanel>
+             <StackPanel Grid.Column="2">
+              <TextBlock Text="SSRC" Style="{StaticResource Label}" />
+              <TextBox x:Name="VoiceSsrc" />
+             </StackPanel>
+            </Grid>
+           </StackPanel>
+          </Border>
+         </StackPanel>
+        </ScrollViewer>
+       </TabItem>
+      </TabControl>
+     </DockPanel>
+    </TabItem>
+    <TabItem Header="Импорт приложений">
+     <DockPanel LastChildFill="True" Margin="0,12,0,0">
+      <TextBlock Text="NekoBox / NekoRay и v2rayN" FontSize="21" FontWeight="SemiBold" DockPanel.Dock="Top" />
+      <TextBlock Text="Поиск читает известные папки приложений. Настройки исходных приложений не меняются. Пароли не выводятся в предпросмотре." Style="{StaticResource Caption}" Margin="0,8,0,0" DockPanel.Dock="Top" />
+      <StackPanel Margin="0,10,0,0" DockPanel.Dock="Bottom">
+       <WrapPanel Margin="0,18,0,12">
+        <Button Content="Найти источники" Click="FindSourcesClick" />
+        <Button Content="Выбрать файл" Click="BrowseSourceClick" Margin="8,0,0,0" />
+        <Button Content="Предпросмотр импорта" Click="PreviewSourceClick" Margin="8,0,0,0" />
+        <Button Content="Обновить связанные" Click="RefreshImportsClick" Margin="8,0,0,0" />
+       </WrapPanel>
+       <TextBlock x:Name="ImportStatus" Style="{StaticResource Caption}" Margin="0,14,0,0" />
+      </StackPanel>
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+       <StackPanel Margin="0,12,14,0">
+        <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
+         <StackPanel>
+          <TextBlock Text="Источники профилей" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,12" />
+          <TextBlock Text="Дополнительная папка portable-приложения" Style="{StaticResource Label}" />
+          <TextBox x:Name="ImportFolder" />
+          <CheckBox x:Name="SyncImports" Content="Обновлять одобренные профили при запуске и перед подключением" />
+         </StackPanel>
+        </Border>
+        <ListBox x:Name="ImportSources" MaxHeight="300" MinHeight="180">
+         <ListBox.ItemTemplate>
+          <DataTemplate>
+           <StackPanel>
+            <TextBlock Text="{Binding Kind}" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding Path}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,4,0,0" />
+           </StackPanel>
+          </DataTemplate>
+         </ListBox.ItemTemplate>
+        </ListBox>
+        <TextBlock Text="Поддержаны профили JSON NekoRay 4, guiNConfig.json старых v2rayN, таблица ProfileItem в guiNDB.db и экспорты ссылок TXT. Для LMDB/LevelDB новых NekoBox нужен экспорт ссылок в файл. Глобальные DNS, TUN и правила других приложений не переносятся без проверки совместимости." Style="{StaticResource Caption}" Margin="0,18,0,0" />
+       </StackPanel>
+      </ScrollViewer>
+     </DockPanel>
+    </TabItem>
+    <TabItem Header="Обновления">
+     <DockPanel LastChildFill="True" Margin="0,12,0,0">
+      <TextBlock Text="Обновления приложения и ядер" FontSize="21" FontWeight="SemiBold" DockPanel.Dock="Top" />
+      <TextBlock Text="sing-box — ядро VPN. zapret / winws — обход DPI. NekoBox для работы RelayDesk не требуется." Style="{StaticResource Caption}" Margin="0,8,0,0" DockPanel.Dock="Top" />
+      <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+       <StackPanel Margin="0,12,14,0">
+        <CheckBox x:Name="AutoUpdates" Content="Проверять при запуске и затем каждые 6 часов" Click="AutoUpdatesChanged" />
+        <TextBlock Text="Автоматически загружаются только сведения о версиях. Ядра обновляются после остановки подключений; RelayDesk — с перезапуском. Любая установка требует подтверждения." Style="{StaticResource Caption}" Margin="0,8,0,0" />
+        <WrapPanel Margin="0,18,0,16">
+         <Button x:Name="CheckUpdatesButton" Content="Проверить обновления" Click="CheckUpdatesClick" />
+         <Button x:Name="InstallRequiredButton" Content="Установить недостающие ядра" Click="InstallRequiredComponentsClick" Margin="8,0,0,0" Style="{StaticResource Primary}" />
+         <Button Content="Отменить загрузку" Click="CancelUpdatesClick" Margin="8,0,0,0" />
+        </WrapPanel>
+        <TextBlock x:Name="UpdatesStatus" Style="{StaticResource Caption}" Text="Проверка ещё не выполнялась." />
+        <Border Style="{StaticResource Panel}" Margin="0,14,0,16">
+         <StackPanel>
+          <TextBlock Text="RelayDesk" FontSize="19" FontWeight="SemiBold"/>
+          <TextBlock Text="GitHub-репозиторий релизов" Style="{StaticResource Label}"/>
+          <DockPanel><Button Content="Сохранить источник" Click="SaveAppRepositoryClick" DockPanel.Dock="Right" Margin="8,0,0,0"/><TextBox x:Name="AppRepository" ToolTip="владелец/репозиторий или https://github.com/владелец/репозиторий"/></DockPanel>
+          <TextBlock x:Name="AppUpdateStatus" Text="Версия не проверена" TextWrapping="Wrap" Margin="0,12,0,10"/>
+          <StackPanel x:Name="AppNotesPanel" Visibility="Collapsed">
+           <Expander Header="Что изменилось" IsExpanded="False"><TextBlock x:Name="AppReleaseNotes" TextWrapping="Wrap" Margin="0,12,0,12"/></Expander>
+           <Button x:Name="InstallAppButton" Content="Установить RelayDesk" Click="InstallAppClick" IsEnabled="False" HorizontalAlignment="Left" Style="{StaticResource Primary}" Margin="0,12,0,0"/>
+          </StackPanel>
+          <TextBlock Text="Скачивание и установка — только после подтверждения. Профили и ядра сохраняются. Для установки приложение перезапустится." Style="{StaticResource Caption}" Margin="0,12,0,0"/>
+         </StackPanel>
+        </Border>
+        <Grid>
+         <Grid.ColumnDefinitions>
+          <ColumnDefinition />
+          <ColumnDefinition Width="14" />
+          <ColumnDefinition />
+         </Grid.ColumnDefinitions>
+         <Border Style="{StaticResource Panel}" Margin="0" Grid.Column="0">
+          <StackPanel>
+           <TextBlock Text="sing-box" FontSize="19" FontWeight="SemiBold" />
+           <TextBlock x:Name="SingUpdateStatus" Text="Версия не проверена" TextWrapping="Wrap" Margin="0,10,0,14" />
+           <WrapPanel>
+            <Button x:Name="InstallSingButton" Content="Установить обновление" Click="InstallSingClick" IsEnabled="False" Style="{StaticResource Primary}" />
+            <Button Content="Описание версии" Click="SingReleaseClick" Margin="8,0,0,0" />
+            <Button Content="Вернуть прежнее ядро" Click="RollbackSingClick" Margin="8,0,0,0" />
+           </WrapPanel>
+          </StackPanel>
+         </Border>
+         <Border Style="{StaticResource Panel}" Margin="0" Grid.Column="2">
+          <StackPanel>
+           <TextBlock Text="zapret / winws" FontSize="19" FontWeight="SemiBold" />
+           <TextBlock x:Name="ZapretUpdateStatus" Text="Сборка не проверена" TextWrapping="Wrap" Margin="0,10,0,14" />
+           <WrapPanel>
+            <Button x:Name="InstallZapretButton" Content="Установить обновление" Click="InstallZapretClick" IsEnabled="False" Style="{StaticResource Primary}" />
+            <Button Content="Изменения сборки" Click="ZapretReleaseClick" Margin="8,0,0,0" />
+            <Button Content="Вернуть прежний zapret" Click="RollbackZapretClick" Margin="8,0,0,0" />
+           </WrapPanel>
+          </StackPanel>
+         </Border>
+        </Grid>
+        <TextBlock Text="Источники: SagerNet/sing-box и релизы Flowseal/zapret-discord-youtube на GitHub. Проверяется SHA-256 архивов. Для внешнего zapret версия Flowseal неизвестна: предлагается переход на выбранный релиз. BAT-скрипты не запускаются; параметры RelayDesk сохраняются." Style="{StaticResource Caption}" Margin="0,16,0,0" />
+       </StackPanel>
+      </ScrollViewer>
+     </DockPanel>
+    </TabItem>
+    <TabItem x:Name="ConnectionTab" Header="Соединения">
+     <Grid>
+      <Grid.RowDefinitions>
+       <RowDefinition Height="Auto" />
+       <RowDefinition Height="Auto" />
+       <RowDefinition Height="Auto" />
+       <RowDefinition Height="*" />
+      </Grid.RowDefinitions>
+      <StackPanel>
+       <TextBlock Text="Текущие соединения" FontSize="21" FontWeight="SemiBold" />
+       <TextBlock Text="Обновление раз в секунду. Маршрут — данные sing-box; область zapret — совпадение фильтра, а не доказательство обработки пакетов. Соединения вне этого ядра здесь не видны. Закрытые соединения исчезают из списка. Список не отправляется в журнал или на ВДС." Style="{StaticResource Caption}" Margin="0,8,0,12" />
+      </StackPanel>
+      <DockPanel Grid.Row="1" Margin="0,0,0,12">
+       <CheckBox x:Name="PauseConnections" Content="Пауза" DockPanel.Dock="Right" Margin="12,0,0,0" />
+       <TextBox x:Name="ConnectionFilter" TextChanged="ConnectionFilterChanged" ToolTip="Фильтр: Discord, vesktop, домен, маршрут" />
+      </DockPanel>
+      <StackPanel Grid.Row="2" Margin="0,0,0,12">
+       <TextBlock x:Name="ConnectionsStatus" Text="Открой вкладку при работающем sing-box." Style="{StaticResource Caption}"/>
+       <TextBlock Text="Нажми на приложение или адрес, чтобы настроить маршрут. Сортировка сохраняется при обновлении списка." Style="{StaticResource Caption}" Margin="0,6,0,0"/>
+       <TextBlock x:Name="ConnectionActionStatus" TextWrapping="Wrap" Margin="0,8,0,0"/>
+      </StackPanel>
+      <DataGrid x:Name="ConnectionsTable" Grid.Row="3" IsReadOnly="True" AutoGenerateColumns="False" CanUserAddRows="False" Background="{DynamicResource Surface}" Foreground="{DynamicResource Ink}" BorderBrush="{DynamicResource Line}" RowBackground="{DynamicResource Surface}" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource Line}">
+       <DataGrid.Resources>
+        <Style x:Key="ConnectionCell" TargetType="TextBlock">
+         <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+         <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+         <Setter Property="Margin" Value="5,3" />
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+         <Setter Property="Background" Value="{DynamicResource Surface}" />
+         <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+         <Setter Property="Template">
+          <Setter.Value>
+           <ControlTemplate TargetType="DataGridColumnHeader">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,1" Padding="6">
+             <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="14"/></Grid.ColumnDefinitions><ContentPresenter/><Path x:Name="SortArrow" Grid.Column="1" Data="M0,4 L4,0 L8,4 Z" Fill="{DynamicResource Muted}" VerticalAlignment="Center" Margin="4,0,0,0" Visibility="Collapsed"/></Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+             <Trigger Property="SortDirection" Value="Ascending"><Setter TargetName="SortArrow" Property="Visibility" Value="Visible"/></Trigger>
+             <Trigger Property="SortDirection" Value="Descending"><Setter TargetName="SortArrow" Property="Visibility" Value="Visible"/><Setter TargetName="SortArrow" Property="Data" Value="M0,0 L4,4 L8,0 Z"/></Trigger>
+            </ControlTemplate.Triggers>
+           </ControlTemplate>
+          </Setter.Value>
+         </Setter>
+        </Style>
+        <Style TargetType="DataGridCell">
+         <Setter Property="BorderThickness" Value="0" />
+         <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+         <Style.Triggers>
+          <Trigger Property="IsSelected" Value="True">
+           <Setter Property="Background" Value="{DynamicResource Selected}" />
+           <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+          </Trigger>
+         </Style.Triggers>
+        </Style>
+       </DataGrid.Resources>
+       <DataGrid.Columns>
+        <DataGridTemplateColumn Header="Приложение" SortMemberPath="Application" Width="150">
+         <DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="{Binding Application}" Click="ConnectionAppClick" ToolTip="Настроить маршрут приложения" Style="{StaticResource ConnectionLink}"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Назначение" SortMemberPath="Destination" Width="200">
+         <DataGridTemplateColumn.CellTemplate><DataTemplate><Button Content="{Binding Destination}" Click="ConnectionHostClick" ToolTip="Настроить маршрут домена или IP" Style="{StaticResource ConnectionLink}"/></DataTemplate></DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn ElementStyle="{StaticResource ConnectionCell}" Header="Сеть" Binding="{Binding Network}" Width="50" />
+        <DataGridTextColumn ElementStyle="{StaticResource ConnectionCell}" Header="Маршрут" Binding="{Binding Route}" Width="140" />
+        <DataGridTextColumn ElementStyle="{StaticResource ConnectionCell}" Header="zapret" Binding="{Binding Zapret}" Width="260" />
+        <DataGridTextColumn ElementStyle="{StaticResource ConnectionCell}" Header="Выход" Binding="{Binding Outbound}" Width="100" />
+        <DataGridTextColumn ElementStyle="{StaticResource ConnectionCell}" Header="Правило" Binding="{Binding Rule}" Width="250" />
+        <DataGridTextColumn ElementStyle="{StaticResource ConnectionCell}" Header="Байты" Binding="{Binding Traffic}" SortMemberPath="TotalBytes" Width="140" />
+       </DataGrid.Columns>
+      </DataGrid>
+     </Grid>
+    </TabItem>
+   </TabControl>
+   <GridSplitter Grid.Row="3" Height="5" HorizontalAlignment="Stretch" Background="{DynamicResource Line}" x:Name="LogSplitter" />
+   <DockPanel Grid.Row="4">
+    <DockPanel DockPanel.Dock="Top" Margin="0,8,0,8">
+     <Button Content="Очистить" Click="ClearLog" DockPanel.Dock="Right" Padding="8,3" />
+     <CheckBox Content="Журнал" Click="ShowLogClick" IsChecked="True" Margin="0" VerticalAlignment="Center" x:Name="ShowLog" />
+    </DockPanel>
+    <TextBox x:Name="Log" IsReadOnly="True" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+   </DockPanel>
+  </Grid>
+ </Grid>
+</UserControl>

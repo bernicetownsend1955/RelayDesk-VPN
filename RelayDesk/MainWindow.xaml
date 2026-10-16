@@ -1,0 +1,10 @@
+﻿<Window x:Class="RelayDesk.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RelayDesk"
+        mc:Ignorable="d"
+        Title="RelayDesk" Height="940" Width="1260" MinWidth="1080" MinHeight="800" Background="{DynamicResource Page}" FontFamily="Segoe UI">
+    <Grid x:Name="Root" Margin="28"/>
+</Window>

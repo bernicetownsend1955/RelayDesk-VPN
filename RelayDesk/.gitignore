@@ -1,0 +1,14 @@
+bin/
+obj/
+dist/
+dist-next/
+dist-userprofile/
+dist-modes/
+dist-updates/
+dist-updates-final/
+user-config/
+*.user
+dist-support/
+dist-flowseal/
+dist-network-fix/
+release/
