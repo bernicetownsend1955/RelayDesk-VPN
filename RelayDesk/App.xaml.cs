@@ -30,6 +30,15 @@ public partial class App : Application
         var suffix = string.IsNullOrWhiteSpace(isolatedFolder) ? "" : "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(isolatedFolder).ToUpperInvariant())))[..16];
         instance = new Mutex(true, @"Local\RelayDesk.Desktop" + suffix, out var created);
         if (!created) { if (!WindowsStartupLaunch) MessageBox.Show("RelayDesk уже открыт. Используй запущенное окно."); Shutdown(); return; }
+        if (string.IsNullOrWhiteSpace(isolatedFolder))
+        {
+            try
+            {
+                var folder=System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"RelayDesk");
+                if (PendingUpdates.StartApp(folder,AppContext.BaseDirectory)) { Shutdown(); return; }
+            }
+            catch(Exception ex) { ProgramJournal.Write("Автообновление не запущено: "+ex.Message,"updates"); }
+        }
         ProgramJournal.Write("Приложение запущено.", "lifecycle");
         DispatcherUnhandledException += (_, error) => ProgramJournal.Write(error.Exception.ToString(), "crash");
         AppDomain.CurrentDomain.UnhandledException += (_, error) => ProgramJournal.Write(error.ExceptionObject.ToString() ?? "Unhandled exception", "crash");

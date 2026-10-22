@@ -40,10 +40,35 @@ public partial class Workspace
             catch (Exception ex) when (!updateCancel.IsCancellationRequested) { singUpdate = null; errors++; SingUpdateStatus.Text = "Не удалось проверить: " + ex.Message; }
             try { zapretUpdate = await checker.CheckZapret(updateCancel.Token); ZapretUpdateStatus.Text = Describe(zapretUpdate); }
             catch (Exception ex) when (!updateCancel.IsCancellationRequested) { zapretUpdate = null; errors++; ZapretUpdateStatus.Text = "Не удалось проверить: " + ex.Message; }
-            var available = new[] { singUpdate, zapretUpdate }.Where(u => u?.Available == true).Select(u => u!.Name).ToArray();
+            var coreUpdates = new List<ComponentUpdate>();
+            if (singUpdate != null) coreUpdates.Add(singUpdate);
+            if (zapretUpdate != null) coreUpdates.Add(zapretUpdate);
+            var otherStatus = new List<string>();
+            foreach(var id in new[]{"Xray","mihomo"})
+            {
+                try { var update=await checker.CheckProxyCore(id,updateCancel.Token);coreUpdates.Add(update);otherStatus.Add(id+": "+update.Status); }
+                catch(Exception ex) when(!updateCancel.IsCancellationRequested) { errors++;otherStatus.Add(id+": "+ex.Message); }
+            }
+            OtherUpdateStatus.Text=string.Join("\n",otherStatus);
+            foreach(var update in coreUpdates.Where(u=>u.Available))
+            {
+                if(PendingUpdates.HasCore(store,update))continue;
+                try
+                {
+                    var executable=await checker.PrepareApproved(update,text=>UpdatesStatus.Text=text,updateCancel.Token);
+                    if(update.Id=="sing-box")await ValidateNewSingBox(executable,updateCancel.Token);
+                    else if(update.Id is "Xray" or "mihomo")await ValidateNewProxyCore(update.Id,executable,updateCancel.Token);
+                    else if(update.Id=="zapret")await ValidateNewZapret(executable,updateCancel.Token);
+                    updateCancel.Token.ThrowIfCancellationRequested();
+                    PendingUpdates.StageCore(store,update,executable);
+                    Write(update.Name+" загружен и проверен; будет выбран при следующем запуске.");
+                }
+                catch(Exception ex) when(!updateCancel.IsCancellationRequested) { errors++;Write("Автообновление "+update.Id+" отложено: "+ex.Message); }
+            }
+            var available = coreUpdates.Where(u => u.Available).Select(u => u.Name).ToArray();
             UpdateBanner.Visibility = available.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-            UpdateNotice.Text = "Доступна установка: " + string.Join(", ", available) + ". Требуется подтверждение.";
-            UpdatesStatus.Text = $"Проверено {DateTime.Now:dd.MM.yyyy HH:mm}. Ошибок: {errors}. Ничего не установлено.";
+            UpdateNotice.Text = "Обновления: " + string.Join(", ", available) + ". Проверенные пакеты применятся при следующем запуске.";
+            UpdatesStatus.Text = $"Проверено {DateTime.Now:dd.MM.yyyy HH:mm}. Ошибок: {errors}. Подготовлено ядер: {PendingUpdates.Cores(store).Count}.";
         }
         catch (OperationCanceledException) { UpdatesStatus.Text = "Проверка обновлений отменена."; }
         finally { updatesBusy = false; RefreshUpdateButtons(); }
@@ -58,7 +83,6 @@ public partial class Workspace
         GuardUpdate();
         if (update == null || !update.Available) throw new InvalidOperationException("Сначала проверь обновления.");
         var version = ComponentUpdates.RevisionLabel(update.Revision);
-        if (new UpdateConsentWindow(update.Name, version) { Owner = Window.GetWindow(this) }.ShowDialog() != true) return;
         updatesBusy = installingUpdate = true; RefreshUpdateButtons(); updateCancel.Dispose(); updateCancel = new();
         Tabs.SelectedIndex = 6;
         foreach (System.Windows.Controls.TabItem tab in Tabs.Items) tab.IsEnabled = tab.Header?.ToString() == "Обновления";
@@ -108,10 +132,40 @@ public partial class Workspace
             }
         }
     }
+    async Task ValidateNewProxyCore(string id,string executable,CancellationToken cancellation)
+    {
+        var scratch=new Store(Path.Combine(store.Folder,"components","validation-"+Guid.NewGuid().ToString("N")));
+        scratch.Settings.Engines[id]=executable;
+        var validator=new EngineSession(scratch,Write);
+        foreach(var profile in store.Profiles.Where(p=>p.Core==id))
+        {
+            cancellation.ThrowIfCancellationRequested();
+            await validator.Check(profile);
+        }
+    }
+    async Task ValidateNewZapret(string executable,CancellationToken cancellation)
+    {
+        var settings=System.Text.Json.JsonSerializer.Deserialize<Preferences>(System.Text.Json.JsonSerializer.Serialize(store.Settings))!;
+        var oldBin=Path.GetDirectoryName(settings.ZapretExe);var newBin=Path.GetDirectoryName(executable)!;
+        if(!string.IsNullOrEmpty(oldBin))settings.ZapretArgs=settings.ZapretArgs.Replace(oldBin,newBin,StringComparison.OrdinalIgnoreCase);
+        settings.ZapretExe=executable;
+        if(string.IsNullOrWhiteSpace(settings.ZapretArgs))settings.ZapretArgs=FlowsealStrategies.Load(executable)[0].Arguments;
+        foreach(var mode in new[]{ConnectionMode.ZapretOnly,ConnectionMode.Combined})
+        {
+            var start=new ProcessStartInfo(executable){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true};
+            start.ArgumentList.Add("--dry-run");
+            foreach(var arg in RuntimePolicy.ZapretArguments(settings,mode))start.ArgumentList.Add(arg);
+            using var process=Process.Start(start)??throw new InvalidOperationException("Не удалось проверить новый zapret.");
+            using var timeout=CancellationTokenSource.CreateLinkedTokenSource(cancellation);timeout.CancelAfter(TimeSpan.FromSeconds(15));
+            var output=process.StandardOutput.ReadToEndAsync();var error=process.StandardError.ReadToEndAsync();
+            try { await process.WaitForExitAsync(timeout.Token);if(process.ExitCode!=0)throw new InvalidOperationException("Новый zapret отклонил параметры: "+ProgramJournal.Clean(await output+await error)); }
+            finally { if(!process.HasExited)process.Kill(true); }
+        }
+    }
     void AutoUpdatesChanged(object sender, RoutedEventArgs e) => Safe(() =>
     {
         store.Settings.CheckComponentUpdates = AutoUpdates.IsChecked == true; store.Save();
-        if (store.Settings.CheckComponentUpdates) { updateTimer.Start(); Safe(CheckUpdates); } else { updateTimer.Stop(); if (!installingUpdate) updateCancel.Cancel(); }
+        if (store.Settings.CheckComponentUpdates) { updateTimer.Start(); Safe(CheckUpdates); } else { updateTimer.Stop(); if (!installingUpdate) updateCancel.Cancel(); PendingUpdates.Cancel(store); }
         return Task.CompletedTask;
     });
     void OpenUpdatesClick(object sender, RoutedEventArgs e) => Tabs.SelectedIndex = 6;

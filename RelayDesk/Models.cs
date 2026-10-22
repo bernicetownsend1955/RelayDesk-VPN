@@ -38,6 +38,7 @@ public class Preferences
     public bool StartupZapret { get; set; } = true;
     public string StartupProfileId { get; set; } = "";
     public string AppUpdateRepository { get; set; } = "";
+    public int UpdatePolicyVersion { get; set; }
     public bool ExperimentalDiagnostics { get; set; }
     public string SupportHost { get; set; } = "";
     public bool SendSupportLogs { get; set; }

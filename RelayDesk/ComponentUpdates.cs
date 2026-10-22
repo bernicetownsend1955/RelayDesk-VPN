@@ -15,6 +15,28 @@ public record ComponentUpdate(string Id, string Name, string Revision, string Cu
 
 public sealed class ComponentUpdates(Store store)
 {
+    public static string OfficialRepository(string id) => id switch { "sing-box" => "SagerNet/sing-box", "zapret" => "Flowseal/zapret-discord-youtube", "Xray" => "XTLS/Xray-core", "mihomo" => "MetaCubeX/mihomo", _ => throw new InvalidDataException("Неизвестное ядро.") };
+    public async Task<ComponentUpdate> CheckProxyCore(string id, CancellationToken cancellation)
+    {
+        if (id is not ("Xray" or "mihomo")) throw new InvalidDataException("Неизвестное ядро.");
+        var release = await Get("https://api.github.com/repos/" + OfficialRepository(id) + "/releases/latest", cancellation);
+        var path = store.Settings.Engines.GetValueOrDefault(id, "");
+        var receipt = store.Settings.ComponentInstalls.GetValueOrDefault(id);
+        var current = receipt != null && receipt.Executable == path ? receipt.Revision : File.Exists(path) ? "Версия не определена" : "Не установлен";
+        return ProxyCoreRelease(release,id,current,File.Exists(path));
+    }
+    public static ComponentUpdate ProxyCoreRelease(JsonObject release, string id, string current, bool installed)
+    {
+        if (id is not ("Xray" or "mihomo") || release["draft"]?.GetValue<bool>() == true || release["prerelease"]?.GetValue<bool>() == true) throw new InvalidDataException("Некорректный стабильный релиз ядра.");
+        var asset = (release["assets"] as JsonArray ?? []).SingleOrDefault(a => id == "Xray" ? JsonTools.Text(a?["name"]) == "Xray-windows-64.zip" : Regex.IsMatch(JsonTools.Text(a?["name"]), @"^mihomo-windows-amd64-compatible.*\.zip$")) ?? throw new InvalidDataException("Нет Windows x64-архива ядра.");
+        var digest=JsonTools.Text(asset["digest"]);
+        if (!Regex.IsMatch(digest,@"^sha256:[a-fA-F0-9]{64}$")) throw new InvalidDataException("Не опубликован SHA-256 ядра.");
+        var revision=JsonTools.Text(release["tag_name"]);
+        var available=!installed || Newer(revision,current);
+        var update=new ComponentUpdate(id,id,revision,current,available ? "Доступно обновление" : current == "Версия не определена" ? "Версия внешнего ядра неизвестна; автоматическая замена пропущена" : "Обновление не требуется",available,JsonTools.Text(release["html_url"]),[new(JsonTools.Text(asset["name"]),JsonTools.Text(asset["browser_download_url"]),asset["size"]!.GetValue<long>(),digest[7..])]);
+        foreach(var file in update.Files) ValidateUrl(file,id);
+        return update;
+    }
     static readonly HttpClient http = CreateHttp();
     static HttpClient CreateHttp()
     {
@@ -114,14 +136,14 @@ public sealed class ComponentUpdates(Store store)
     static void ValidateUrl(UpdateFile file, string id)
     {
         if (!Uri.TryCreate(file.Url, UriKind.Absolute, out var url) || url.Scheme != "https" || url.UserInfo.Length > 0) throw new InvalidDataException("Некорректный источник обновления.");
-        var prefix = id == "zapret" ? "https://github.com/Flowseal/zapret-discord-youtube/releases/download/" : "https://github.com/SagerNet/sing-box/releases/download/";
+        var prefix = "https://github.com/" + OfficialRepository(id) + "/releases/download/";
         if (file.GitBlob) throw new InvalidDataException("Для обновления требуется релизный архив с SHA-256.");
         if (!file.Url.StartsWith(prefix, StringComparison.Ordinal)) throw new InvalidDataException("Пакет получен не из официального источника.");
         if (file.Size is <= 0 or > 150_000_000 || !Regex.IsMatch(file.Hash, file.GitBlob ? "^[0-9a-fA-F]{40}$" : "^[0-9a-fA-F]{64}$")) throw new InvalidDataException("Некорректные размер или хеш пакета.");
     }
     public async Task<string> PrepareApproved(ComponentUpdate update, Action<string> progress, CancellationToken cancellation)
     {
-        if (update.Id is not ("sing-box" or "zapret") || update.Files.Count is 0 or > 1500 || update.Files.Sum(f => f.Size) > 250_000_000) throw new InvalidDataException("Некорректный пакет обновления.");
+        if (update.Id is not ("sing-box" or "zapret" or "Xray" or "mihomo") || update.Files.Count != 1 || update.Files.Sum(f => f.Size) > 250_000_000) throw new InvalidDataException("Некорректный пакет обновления.");
         foreach (var file in update.Files) ValidateUrl(file, update.Id);
         var destination = Path.Combine(store.Folder, "components", update.Id, Guid.NewGuid().ToString("N")); Directory.CreateDirectory(destination);
         var package = Path.Combine(destination, "package"); Directory.CreateDirectory(package);
@@ -140,11 +162,11 @@ public sealed class ComponentUpdates(Store store)
             if (!string.Equals(await HashFile(output, file.GitBlob, cancellation), file.Hash, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Контрольная сумма не совпала. Обновление не применено.");
         }
         string executable;
-        if (update.Id == "sing-box")
+        if (update.Id != "zapret")
         {
             var unpacked = Path.Combine(destination, "unpacked"); Directory.CreateDirectory(unpacked);
             Extract(Path.Combine(package, update.Files.Single().Name), unpacked);
-            executable = Directory.GetFiles(unpacked, "sing-box.exe", SearchOption.AllDirectories).Single();
+            executable = Directory.GetFiles(unpacked, update.Id == "sing-box" ? "sing-box.exe" : update.Id == "Xray" ? "xray.exe" : "mihomo*.exe", SearchOption.AllDirectories).Single();
         }
         else
         {

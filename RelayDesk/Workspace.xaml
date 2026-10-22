@@ -540,7 +540,7 @@
          </StackPanel>
         </ScrollViewer>
        </TabItem>
-
+       
    </TabControl>
      </DockPanel>
     </TabItem>
@@ -589,25 +589,26 @@
       <TextBlock Text="sing-box — ядро VPN. zapret / winws — обход DPI. NekoBox для работы RelayDesk не требуется." Style="{StaticResource Caption}" Margin="0,8,0,0" DockPanel.Dock="Top" />
       <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
        <StackPanel Margin="0,12,14,0">
-        <CheckBox x:Name="AutoUpdates" Content="Проверять при запуске и затем каждые 6 часов" Click="AutoUpdatesChanged" />
-        <TextBlock Text="Автоматически загружаются только сведения о версиях. Ядра обновляются после остановки подключений; RelayDesk — с перезапуском. Любая установка требует подтверждения." Style="{StaticResource Caption}" Margin="0,8,0,0" />
+        <CheckBox x:Name="AutoUpdates" Content="Автоматически проверять, загружать и готовить обновления" Click="AutoUpdatesChanged" />
+        <TextBlock Text="Источники закреплены. Новые версии скачиваются в фоне и проверяются по SHA-256. Ядра переключаются при следующем запуске; RelayDesk устанавливается при закрытии и запускается снова. Работающие подключения во время загрузки сохраняются." Style="{StaticResource Caption}" Margin="0,8,0,0" />
         <WrapPanel Margin="0,18,0,16">
          <Button x:Name="CheckUpdatesButton" Content="Проверить обновления" Click="CheckUpdatesClick" />
          <Button x:Name="InstallRequiredButton" Content="Установить недостающие ядра" Click="InstallRequiredComponentsClick" Margin="8,0,0,0" Style="{StaticResource Primary}" />
          <Button Content="Отменить загрузку" Click="CancelUpdatesClick" Margin="8,0,0,0" />
         </WrapPanel>
         <TextBlock x:Name="UpdatesStatus" Style="{StaticResource Caption}" Text="Проверка ещё не выполнялась." />
+        <TextBlock x:Name="OtherUpdateStatus" Style="{StaticResource Caption}" Margin="0,8,0,0"/>
         <Border Style="{StaticResource Panel}" Margin="0,14,0,16">
          <StackPanel>
           <TextBlock Text="RelayDesk" FontSize="19" FontWeight="SemiBold"/>
           <TextBlock Text="GitHub-репозиторий релизов" Style="{StaticResource Label}"/>
-          <DockPanel><Button Content="Сохранить источник" Click="SaveAppRepositoryClick" DockPanel.Dock="Right" Margin="8,0,0,0"/><TextBox x:Name="AppRepository" ToolTip="владелец/репозиторий или https://github.com/владелец/репозиторий"/></DockPanel>
+          <TextBox x:Name="AppRepository" IsReadOnly="True" ToolTip="Закреплённый источник RelayDesk"/>
           <TextBlock x:Name="AppUpdateStatus" Text="Версия не проверена" TextWrapping="Wrap" Margin="0,12,0,10"/>
           <StackPanel x:Name="AppNotesPanel" Visibility="Collapsed">
            <Expander Header="Что изменилось" IsExpanded="False"><TextBlock x:Name="AppReleaseNotes" TextWrapping="Wrap" Margin="0,12,0,12"/></Expander>
            <Button x:Name="InstallAppButton" Content="Установить RelayDesk" Click="InstallAppClick" IsEnabled="False" HorizontalAlignment="Left" Style="{StaticResource Primary}" Margin="0,12,0,0"/>
           </StackPanel>
-          <TextBlock Text="Скачивание и установка — только после подтверждения. Профили и ядра сохраняются. Для установки приложение перезапустится." Style="{StaticResource Caption}" Margin="0,12,0,0"/>
+          <TextBlock Text="Источник RelayDesk нельзя изменить. Подтверждение в приложении не требуется; Windows может показать системный запрос прав администратора. Профили сохраняются." Style="{StaticResource Caption}" Margin="0,12,0,0"/>
          </StackPanel>
         </Border>
         <Grid>

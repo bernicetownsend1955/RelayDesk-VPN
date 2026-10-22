@@ -7,7 +7,11 @@
 )
 $ErrorActionPreference = 'Stop'
 $statusPath = Join-Path $DataFolder 'application-update-status.txt'
+$applyLock = $null
 try {
+    $lockPath = Join-Path $DataFolder 'application-update.lock'
+    try { $applyLock = [IO.File]::Open($lockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None) }
+    catch [IO.IOException] { exit 0 }
     $deadline = [DateTime]::UtcNow.AddMinutes(5)
     Set-Content -LiteralPath $statusPath -Value 'Waiting for RelayDesk to close.'
     while (Get-Process -Id $ParentId -ErrorAction SilentlyContinue) {
@@ -33,7 +37,10 @@ try {
     }
     $appPath = Join-Path $InstallDirectory 'RelayDesk.exe'
     if (!(Test-Path -LiteralPath $appPath)) { throw 'Installed application not found.' }
+    $pendingPath = Join-Path $DataFolder 'pending-app-update.json'
+    if (Test-Path -LiteralPath $pendingPath) { Remove-Item -LiteralPath $pendingPath -Force }
     Set-Content -LiteralPath $statusPath -Value 'Update installed. Starting RelayDesk.'
+    $applyLock.Dispose(); $applyLock = $null
     $appProcess = Start-Process -FilePath $appPath -WorkingDirectory $InstallDirectory -PassThru
     Set-Content -LiteralPath $statusPath -Value ('Update installed. RelayDesk PID ' + $appProcess.Id)
 } catch {
@@ -42,3 +49,4 @@ try {
     [System.Windows.MessageBox]::Show('Не удалось установить обновление RelayDesk: ' + $_.Exception.Message + "`nПрежнюю версию можно открыть через ярлык.",'RelayDesk') | Out-Null
     exit 1
 }
+finally { if ($applyLock) { $applyLock.Dispose() } }

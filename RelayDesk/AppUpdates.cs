@@ -25,7 +25,7 @@ public sealed class AppUpdates
         return client;
     }
     public static string CurrentVersion => typeof(AppUpdates).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
-    public static string DefaultRepository => typeof(AppUpdates).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "GitHubRepository")?.Value ?? "";
+    public const string DefaultRepository = "bernicetownsend1955/RelayDesk-VPN";
     public static string Repository(string value)
     {
         value = value.Trim();
@@ -68,6 +68,7 @@ public sealed class AppUpdates
     public async Task<AppRelease> Check(string repository, string current, CancellationToken cancellation)
     {
         repository = Repository(repository);
+        if (!repository.Equals(DefaultRepository, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Источник RelayDesk закреплён в приложении.");
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellation); timeout.CancelAfter(TimeSpan.FromSeconds(20));
         using var response = await http.GetAsync($"https://api.github.com/repos/{repository}/releases/latest", HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         response.EnsureSuccessStatusCode();
@@ -80,6 +81,7 @@ public sealed class AppUpdates
     {
         // Revalidate public record fields before treating them as paths or executable metadata.
         var version = VersionText(release.Version); var repository = Repository(release.Repository);
+        if (!repository.Equals(DefaultRepository, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Источник RelayDesk закреплён в приложении.");
         var name = $"RelayDesk-Setup-{version}-x64.exe";
         var uri = new Uri(release.File.Url);
         if (!release.Available || release.File.Name != name || uri.Scheme != "https" || uri.Host != "github.com" || uri.Query.Length > 0 || uri.Fragment.Length > 0 || uri.UserInfo.Length > 0 || uri.Port != 443 || (!uri.AbsolutePath.Equals($"/{repository}/releases/download/v{version}/{name}", StringComparison.OrdinalIgnoreCase) && !uri.AbsolutePath.Equals($"/{repository}/releases/download/{version}/{name}", StringComparison.OrdinalIgnoreCase)) || !Regex.IsMatch(release.File.Hash, "^[a-fA-F0-9]{64}$") || release.File.Size is < 1024 or > 250_000_000) throw new InvalidDataException("Некорректный пакет RelayDesk.");

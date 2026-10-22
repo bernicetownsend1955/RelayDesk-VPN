@@ -29,6 +29,13 @@ public partial class Workspace : UserControl
         Navigation.PreviewMouseLeftButtonDown += NavigationMouseDown;
         AddHandler(Expander.ExpandedEvent, new RoutedEventHandler(DetailsExpanded));
         store = new Store();
+        if (Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR") == null && store.Settings.UpdatePolicyVersion < 1)
+        {
+            store.Settings.CheckComponentUpdates = true;
+            store.Settings.AppUpdateRepository = AppUpdates.DefaultRepository;
+            store.Settings.UpdatePolicyVersion = 1; store.Save();
+        }
+        PendingUpdates.ApplyCores(store, message => ProgramJournal.Write(message, "updates"));
         BundledCores.Bind(store, AppContext.BaseDirectory);
         session = new EngineSession(store, Write);
         session.Changed += UpdateStatus;
@@ -80,6 +87,7 @@ public partial class Workspace : UserControl
             connectionMonitor.Dispose();
             support.Dispose();
             await session.StopAll(); SaveGlobal();
+            if (Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR") == null) _ = PendingUpdates.StartApp(store.Folder, AppContext.BaseDirectory);
         }
         catch (Exception ex) { Write(ex.Message); MessageBox.Show("Ошибка при закрытии: " + ex.Message); }
         finally { SystemEvents.UserPreferenceChanged -= WindowsThemeChanged; closed = true; _ = Dispatcher.BeginInvoke(new Action(() => Window.GetWindow(this).Close())); }
