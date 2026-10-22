@@ -18,16 +18,17 @@ public sealed class ConnectionRouteWindow : ThemedWindow
         content.Children.Add(new TextBlock { Text = value, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,8) });
         content.Children.Add(new TextBlock { Text = "Профиль: " + profile.Name, Style = (Style)FindResource("Caption") });
         var existing = profile.QuickRoutes.FirstOrDefault(r => r.Value == value && (r.Kind == kind || kind == "domain" && r.Kind == "domain_suffix"));
-        var choices = new[] { "Напрямую" }.Concat(proxyTags.Select(t => "VPN / " + t)).ToArray();
-        var choice = new ComboBox { ItemsSource = choices, Margin = new Thickness(0,16,0,0), SelectedIndex = existing != null && !existing.Direct ? Array.IndexOf(proxyTags, existing.Outbound) + 1 : 0 };
+        var choices = new[] { "Напрямую" }.Concat(proxyTags.Select(t => "VPN / " + t)).Append("Через zapret").ToArray();
+        var choice = new ComboBox { ItemsSource = choices, Margin = new Thickness(0,16,0,0), SelectedIndex = existing?.Zapret == true ? choices.Length - 1 : existing != null && !existing.Direct ? Array.IndexOf(proxyTags, existing.Outbound) + 1 : 0 };
         content.Children.Add(choice);
         var suffix = new CheckBox { Content = "Включая поддомены", IsChecked = existing?.Kind == "domain_suffix", Visibility = kind == "domain" ? Visibility.Visible : Visibility.Collapsed };
         content.Children.Add(suffix);
-        content.Children.Add(new TextBlock { Text = "Правило сохраняется для этого профиля. «Применить» переподключит VPN и прервёт текущие соединения. Для правил приложений нужен TUN. «Напрямую» не гарантирует обработку zapret: она зависит от его фильтра.", TextWrapping = TextWrapping.Wrap, Style = (Style)FindResource("Caption"), Margin = new Thickness(0,14,0,0) });
+        content.Children.Add(new TextBlock { Text = "«Через zapret» выводит трафик из VPN и добавляет фильтр zapret, когда включены оба компонента. Если zapret выключен, действует исходный маршрут. Для приложений нужен TUN. Winws не фильтрует по EXE: правило приложения расширяет перехват TCP и UDP, включая другой прямой трафик. «Применить» переподключит компоненты и прервёт текущие соединения.", TextWrapping = TextWrapping.Wrap, Style = (Style)FindResource("Caption"), Margin = new Thickness(0,14,0,0) });
         void Save(bool apply)
         {
             if (choice.SelectedIndex < 0) return;
-            Rule = new(kind == "domain" && suffix.IsChecked == true ? "domain_suffix" : kind, value, choice.SelectedIndex == 0 ? "@direct" : proxyTags[choice.SelectedIndex - 1], choice.SelectedIndex == 0);
+            bool zapret = choice.SelectedIndex == choices.Length - 1;
+            Rule = new(kind == "domain" && suffix.IsChecked == true ? "domain_suffix" : kind, value, zapret ? "@zapret" : choice.SelectedIndex == 0 ? "@direct" : proxyTags[choice.SelectedIndex - 1], choice.SelectedIndex == 0, zapret);
             ApplyNow = apply; DialogResult = true;
         }
         var save = new Button { Content = "Сохранить правило", Style = (Style)FindResource("Primary") }; save.Click += (_,_) => Save(false); actions.Children.Add(save);

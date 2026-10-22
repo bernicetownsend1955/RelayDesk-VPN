@@ -24,9 +24,16 @@ try {
     foreach ($file in @('profiles.json','settings.json','support-token.dpapi','sing-box.exe','winws.exe')) {
         if (Test-Path -LiteralPath (Join-Path $destination $file)) { throw ('Unexpected bundled user data or core: '+$file) }
     }
-    Write-Output 'PASS Program Files install, runtime, hashes and uninstall registration'
+        $bundled = Join-Path $destination 'bundled-cores'
+    $manifest = Get-Content -LiteralPath (Join-Path $bundled 'manifest.json') -Raw | ConvertFrom-Json
+    if (@($manifest).Count -ne 4) { throw 'Expected four bundled cores' }
+    foreach ($core in $manifest) {
+        if (!(Test-Path -LiteralPath (Join-Path $bundled $core.Executable))) { throw ('Missing core: '+$core.Id) }
+        foreach($file in $core.Files) { if ((Get-FileHash -LiteralPath (Join-Path $bundled $file.Path) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $file.Sha256) { throw ('Installed core differs: '+$file.Path) } }
+    }
+    Write-Output 'PASS Program Files install, runtime, four bundled cores, hashes and uninstall registration'
     $uiCheck = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'RelayDesk.Checks\UiSmoke.ps1'
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $uiCheck -Executable (Join-Path $destination 'RelayDesk.exe') -CheckRouting -CheckTun
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $uiCheck -Executable (Join-Path $destination 'RelayDesk.exe') -CheckRouting -CheckTun -ExpectBundledCores
     if ($LASTEXITCODE) { throw 'Installed application UI checks failed' }
 } finally {
     $uninstaller = Join-Path $destination 'unins000.exe'

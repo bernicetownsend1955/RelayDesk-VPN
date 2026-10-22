@@ -152,7 +152,7 @@ public static class AppImports
         {
             var old = store.Profiles.FirstOrDefault(x => x.SourceKey.Length > 0 && x.SourceKey == p.SourceKey);
             if (old == null) { store.Profiles.Add(p); added++; }
-            else { p.Id = old.Id; p.Tun = old.Tun; p.SystemProxy = old.SystemProxy; p.Dns = old.Dns; p.LocalPort = old.LocalPort; p.AutoCandidate = old.AutoCandidate; p.QuickRoutes = old.QuickRoutes.ToList(); store.Profiles[store.Profiles.IndexOf(old)] = p; updated++; }
+            else { p.Id = old.Id; p.Tun = old.Tun; p.SystemProxy = old.SystemProxy; p.Dns = old.Dns; p.LocalPort = old.LocalPort; p.AutoCandidate = old.AutoCandidate; p.QuickRoutes = old.QuickRoutes.ToList(); p.SubscriptionGroup = old.SubscriptionGroup; store.Profiles[store.Profiles.IndexOf(old)] = p; updated++; }
         }
         store.Save(); return (added, updated);
     }

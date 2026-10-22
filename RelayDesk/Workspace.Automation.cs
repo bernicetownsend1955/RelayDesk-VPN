@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -13,7 +13,7 @@ public partial class Workspace
         AutoServer.IsChecked = store.Settings.AutoServer; DiscordSplit.IsChecked = store.Settings.DiscordSplit;
         ConditionalRouting.IsChecked = store.Settings.ConditionalRouting;
         DiscordOnly.IsChecked = store.Settings.ZapretDiscordOnly; AutoZapret.IsChecked = store.Settings.AutoZapret;
-        VoiceCidrs.Text = store.Settings.DiscordVoiceCidrs; VoiceEndpoint.Text = store.Settings.VoiceEndpoint; VoiceSsrc.Text = store.Settings.VoiceSsrc == 0 ? "" : store.Settings.VoiceSsrc.ToString();
+        VoiceUdpDesync.IsChecked = store.Settings.VoiceUdpDesync; VoiceDiscoveryEnabled.IsChecked = store.Settings.VoiceDiscoveryEnabled; VoiceCidrs.Text = store.Settings.DiscordVoiceCidrs; VoiceEndpoint.Text = store.Settings.VoiceEndpoint; VoiceSsrc.Text = store.Settings.VoiceSsrc == 0 ? "" : store.Settings.VoiceSsrc.ToString();
         StrategyList.Text = store.Settings.StrategyList.Length > 0 ? store.Settings.StrategyList : ZapretAudit.DefaultStrategies;
         if (string.IsNullOrWhiteSpace(store.Settings.StrategyList) || store.Settings.StrategyList.Replace("\r", "").Trim() == ZapretAudit.DefaultStrategies.Trim())
         {
@@ -43,20 +43,21 @@ public partial class Workspace
         var applications = ApplicationRoutes.Paths(ApplicationList.Items.Cast<string>());
         var strategies = validateZapret ? ZapretAudit.Parse(StrategyList.Text) : new List<Strategy>();
         uint ssrc = store.Settings.VoiceSsrc;
-        if (validateZapret)
+        if (validateZapret && VoiceDiscoveryEnabled.IsChecked == true)
         {
             ssrc = 0;
             if (VoiceSsrc.Text.Trim().Length > 0 && !uint.TryParse(VoiceSsrc.Text, out ssrc)) throw new FormatException("SSRC должен быть целым числом от 1 до 4294967295.");
             if ((VoiceEndpoint.Text.Trim().Length > 0) != (ssrc > 0)) throw new FormatException("Для UDP-проверки укажи вместе endpoint и ненулевой SSRC либо оставь оба поля пустыми.");
             if (VoiceEndpoint.Text.Trim().Length > 0 && !System.Net.IPEndPoint.TryParse(VoiceEndpoint.Text.Trim(), out _)) throw new FormatException("Голосовой endpoint: IP:порт.");
         }
-        var scope = new Preferences { ZapretDiscordOnly = DiscordOnly.IsChecked == true, DiscordVoiceCidrs = VoiceCidrs.Text };
+        var scope = new Preferences { ZapretDiscordOnly = DiscordOnly.IsChecked == true, DiscordVoiceCidrs = VoiceCidrs.Text, VoiceUdpDesync = VoiceUdpDesync.IsChecked == true };
         foreach (var strategy in strategies) _ = DiscordScope.Arguments(scope, strategy.Arguments);
         store.Settings.AutoServer = AutoServer.IsChecked == true; store.Settings.DiscordSplit = DiscordSplit.IsChecked == true;
         store.Settings.ConditionalRouting = ConditionalRouting.IsChecked == true;
         store.Settings.ZapretApplications = applications.ToList();
         store.Settings.ZapretDiscordOnly = DiscordOnly.IsChecked == true; store.Settings.AutoZapret = AutoZapret.IsChecked == true;
         store.Settings.DiscordVoiceCidrs = VoiceCidrs.Text; store.Settings.StrategyList = StrategyList.Text;
+        store.Settings.VoiceUdpDesync = VoiceUdpDesync.IsChecked == true; store.Settings.VoiceDiscoveryEnabled = VoiceDiscoveryEnabled.IsChecked == true;
         store.Settings.VoiceEndpoint = VoiceEndpoint.Text.Trim(); store.Settings.VoiceSsrc = ssrc;
         SaveGlobal();
     }
@@ -131,9 +132,10 @@ public partial class Workspace
         var voiceCidrs = DiscordScope.Cidrs(VoiceCidrs.Text);
         foreach (var strategy in strategies) _ = DiscordScope.Arguments(new Preferences { ZapretDiscordOnly = true, DiscordVoiceCidrs = VoiceCidrs.Text }, strategy.Arguments);
         var endpoint = VoiceEndpoint.Text.Trim(); uint ssrc = 0;
-        if (VoiceSsrc.Text.Trim().Length > 0 && !uint.TryParse(VoiceSsrc.Text.Trim(), out ssrc)) throw new FormatException("Некорректный SSRC.");
-        if ((endpoint.Length > 0) != (ssrc > 0) || endpoint.Length > 0 && !System.Net.IPEndPoint.TryParse(endpoint, out _)) throw new FormatException("Для проверки голоса нужны вместе IP:порт и SSRC текущей сессии, либо оставь оба поля пустыми.");
+        if (VoiceDiscoveryEnabled.IsChecked == true && VoiceSsrc.Text.Trim().Length > 0 && !uint.TryParse(VoiceSsrc.Text.Trim(), out ssrc)) throw new FormatException("Некорректный SSRC.");
+        if (VoiceDiscoveryEnabled.IsChecked == true && ((endpoint.Length > 0) != (ssrc > 0) || endpoint.Length > 0 && !System.Net.IPEndPoint.TryParse(endpoint, out _))) throw new FormatException("Для проверки голоса нужны вместе IP:порт и SSRC текущей сессии, либо оставь оба поля пустыми.");
         store.Settings.ZapretExe = ZapretExe.Text.Trim(); store.Settings.StrategyList = StrategyList.Text;
+        store.Settings.VoiceUdpDesync = VoiceUdpDesync.IsChecked == true; store.Settings.VoiceDiscoveryEnabled = VoiceDiscoveryEnabled.IsChecked == true;
         store.Settings.DiscordVoiceCidrs = VoiceCidrs.Text; store.Settings.VoiceEndpoint = endpoint; store.Settings.VoiceSsrc = ssrc; store.Save();
         await Automatic(async c => { await Audit(c); }, allowVpn: true);
     });
@@ -224,6 +226,7 @@ public partial class Workspace
         var preview = new BatchImportWindow(batch) { Owner = Window.GetWindow(this) };
         if (preview.ShowDialog() != true) return Task.CompletedTask;
         var chosen = preview.Chosen;
+        foreach (var p in chosen) p.SubscriptionGroup = CurrentSubscriptionGroup;
         var result = AppImports.Apply(store, chosen);
         if (!store.Settings.ApprovedImportFiles.Contains(source.Path, StringComparer.OrdinalIgnoreCase)) store.Settings.ApprovedImportFiles.Add(source.Path);
         foreach (var p in chosen) if (!store.Settings.ApprovedImportKeys.Contains(p.SourceKey)) store.Settings.ApprovedImportKeys.Add(p.SourceKey);

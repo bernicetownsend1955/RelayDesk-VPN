@@ -8,6 +8,7 @@ if (!(Test-Path -LiteralPath $Compiler)) { throw 'Install Inno Setup 6 and pass 
 if ($Repository -and $Repository -notmatch '^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}$') { throw 'Repository must be owner/repository.' }
 & dotnet publish $project -c Release -r win-x64 --self-contained true -o $publish "-p:GitHubRepository=$Repository"
 if ($LASTEXITCODE) { throw 'Publish failed' }
+& (Join-Path $PSScriptRoot 'Prepare-Cores.ps1') -PublishDir $publish
 $arguments = @("/DAppVersion=$version", "/DPublishDir=$publish")
 if ($TestBuild) { $arguments += '/DTestBuild=1' }
 & $Compiler @arguments (Join-Path $PSScriptRoot 'RelayDesk.iss')
@@ -26,4 +27,5 @@ if (!$TestBuild) {
         }
     }
 }
-Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'output') -Filter '*.exe' | Get-FileHash -Algorithm SHA256
+$setupName = if ($TestBuild) { 'RelayDesk-Setup-QA.exe' } else { 'RelayDesk-Setup-'+$version+'-x64.exe' }
+Get-FileHash -LiteralPath (Join-Path (Join-Path $PSScriptRoot 'output') $setupName) -Algorithm SHA256

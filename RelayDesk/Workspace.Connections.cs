@@ -27,18 +27,22 @@ public partial class Workspace
         try
         {
             string config;
-            bool own = session.ProxyRunning && session.ActiveProfile?.Core == "sing-box";
-            if (own) config = File.ReadAllText(Path.Combine(store.Folder, session.ActiveProfile!.Id + ".runtime.json"));
+            bool own = session.ProxyRunning && session.ActiveProfile?.Core is "sing-box" or "Xray" or "mihomo";
+            var core=own ? session.ActiveProfile!.Core : selected?.Core ?? "";
+            ConnectionsHeading.Text=core=="Xray" ? "Последние маршруты Xray" : "Текущие соединения";
+            if (own) config = File.ReadAllText(Path.Combine(store.Folder, session.ActiveProfile!.Id + (core=="mihomo" ? ".runtime.yaml" : ".runtime.json")));
             else
             {
-                if (selected?.Core != "sing-box") throw new InvalidOperationException("Монитор соединений поддерживает sing-box.");
+                if (selected?.Core is not ("sing-box" or "mihomo")) throw new InvalidOperationException("Для маршрутов Xray запусти профиль в RelayDesk. Для sing-box / mihomo нужен доступный локальный API.");
                 config = selected.Managed ? JsonTools.Build(selected) : selected.Config;
             }
-            var rows = await connectionMonitor.Read(config, own ? session.ZapretRunning : null, own ? session.ActiveZapretArguments : [], connectionCancel.Token);
+            var rows = core=="Xray" ? session.XrayConnections.Read(config,session.ZapretRunning,session.ActiveZapretArguments)
+                : await connectionMonitor.Read(core=="mihomo" ? MihomoConnections.MonitorConfig(config) : config, own ? session.ZapretRunning : null, own ? session.ActiveZapretArguments : [], connectionCancel.Token);
+            if(core=="mihomo") rows=rows.Select(r=>r with { CanEdit=false }).ToList();
             if (closing) return;
             connectionRows = rows; FilterConnections();
             var direct = rows.Count(r => r.Route == "Напрямую"); var proxy = rows.Count(r => r.Route == "Через VPN / прокси");
-            ConnectionsStatus.Text = $"{DateTime.Now:HH:mm:ss} · Показано: {rows.Count}; напрямую: {direct}; VPN / прокси: {proxy}. " + (own ? "Источник: запущенный RelayDesk sing-box." : "Источник: локальный API выбранного профиля; принадлежность процесса RelayDesk не подтверждена. Состояние zapret неизвестно.");
+            ConnectionsStatus.Text = $"{DateTime.Now:HH:mm:ss} · Показано: {rows.Count}; напрямую: {direct}; VPN / прокси: {proxy}. " + (own ? "Источник: RelayDesk / "+core+". " : "Источник: локальный API выбранного профиля; принадлежность процесса RelayDesk не подтверждена. ") + (core=="Xray" ? "История за 3 минуты: закрытие соединений, процесс и байты ядро не сообщает." : "Текущие соединения ядра.");
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { connectionRows.Clear(); FilterConnections(); ConnectionsStatus.Text = "Нет текущих данных: " + ProgramJournal.Clean(ex.Message); }

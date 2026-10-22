@@ -1,0 +1,53 @@
+name: Release Windows installer
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: '9.0.x'
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          [xml]$project = Get-Content RelayDesk/RelayDesk.csproj
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$' -or $env:RELEASE_TAG -ne ('v'+$version)) { throw 'Tag and project version differ.' }
+          $notes = 'RelayDesk/installer/release-notes-'+$version+'.md'
+          if (!(Test-Path -LiteralPath $notes)) { throw 'Release notes missing.' }
+          "RELEASE_VERSION=$version" >> $env:GITHUB_ENV
+      - name: Build installer with bundled cores
+        run: |
+          $candidates = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6/ISCC.exe')
+          )
+          $compiler = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (!$compiler) { throw 'Inno Setup compiler missing from runner.' }
+          & ./RelayDesk/installer/Build-Installer.ps1 -Compiler $compiler -Repository $env:GITHUB_REPOSITORY
+      - name: Publish installer and SHA-256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = 'RelayDesk/installer/release-notes-'+$env:RELEASE_VERSION+'.md'
+          & ./RelayDesk/installer/Publish-Release.ps1 -Repository $env:GITHUB_REPOSITORY -NotesFile $notes -SkipBuild -Publish

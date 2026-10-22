@@ -17,6 +17,7 @@ public record DiscordReport(string Name, string Api, string Gateway, string Voic
 
 public static class ZapretAudit
 {
+    public static bool ShouldProbeVoice(Preferences settings) => settings.VoiceDiscoveryEnabled && settings.VoiceEndpoint.Length > 0 && settings.VoiceSsrc != 0;
     public static DiscordReport? Best(IEnumerable<DiscordReport> reports) => reports.Skip(1).Where(r => r.Passed && r.Ms is >= 0).OrderBy(r => r.Ms).FirstOrDefault();
     public const string DefaultStrategies = "Разделение TLS\n--dpi-desync=multisplit\n--dpi-desync-split-pos=1,midsld\n---\nFake и split\n--dpi-desync=fake,multisplit\n--dpi-desync-split-pos=1,midsld\n--dpi-desync-fooling=md5sig\n---\nFake и disorder\n--dpi-desync=fake,multidisorder\n--dpi-desync-split-pos=1,midsld\n--dpi-desync-fooling=badseq,md5sig";
     public static List<Strategy> Parse(string text)
@@ -33,7 +34,7 @@ public static class ZapretAudit
     }
     public static async Task<DiscordReport> Probe(string name, Preferences settings, CancellationToken cancellation, string args = "")
     {
-        string api = "Ошибка", gateway = "Ошибка", voice = "Не проверен: нет endpoint и SSRC";
+        string api = "Ошибка", gateway = "Ошибка", voice = settings.VoiceDiscoveryEnabled ? "Не проверен: нет endpoint и SSRC" : "Голос не проверен; UDP-тест отключён (WebRTC не поддерживается)";
         bool apiOk = false, gatewayOk = false, voiceOk = false;
         var watch = Stopwatch.StartNew();
         var network = DirectNetwork.Interface();
@@ -65,13 +66,13 @@ public static class ZapretAudit
             gateway = gatewayOk ? "WebSocket Hello" : "Нет Hello"; socket.Abort();
         }
         catch (Exception ex) when (!cancellation.IsCancellationRequested) { gateway = "Gateway: " + ProgramJournal.Clean(ex.Message); }
-        if (settings.VoiceEndpoint.Length > 0 && settings.VoiceSsrc != 0)
+        if (ShouldProbeVoice(settings))
         {
             try { await VoiceDiscovery(settings.VoiceEndpoint, settings.VoiceSsrc, cancellation); voiceOk = true; voice = "UDP IP discovery отвечает; аудио не проверено"; }
             catch (Exception) when (!cancellation.IsCancellationRequested) { voice = "Нет ответа UDP IP discovery"; }
         }
         cancellation.ThrowIfCancellationRequested();
-        var passed = apiOk && gatewayOk && (settings.VoiceEndpoint.Length == 0 || settings.VoiceSsrc == 0 || voiceOk);
+        var passed = apiOk && gatewayOk && (!ShouldProbeVoice(settings) || voiceOk);
         return new(name, api, gateway, voice, passed ? watch.ElapsedMilliseconds : null, passed, args);
     }
     public static byte[] DiscoveryPacket(uint ssrc)

@@ -6,6 +6,8 @@ namespace RelayDesk;
 
 public class Profile
 {
+    public string SubscriptionId { get; set; } = "";
+    public string SubscriptionGroup { get; set; } = "";
     public List<QuickRoute> QuickRoutes { get; set; } = new();
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
     public string Name { get; set; } = "Новый профиль";
@@ -28,6 +30,9 @@ public class Profile
 
 public class Preferences
 {
+    public string LastConnectedProfileId { get; set; } = "";
+    public List<SubscriptionSource> Subscriptions { get; set; } = new();
+    public List<string> SubscriptionGroups { get; set; } = new();
     public bool WindowsStartup { get; set; }
     public bool StartupVpn { get; set; } = true;
     public bool StartupZapret { get; set; } = true;
@@ -50,6 +55,8 @@ public class Preferences
     public bool AutoZapret { get; set; }
     public string DiscordVoiceCidrs { get; set; } = "";
     public string VoiceEndpoint { get; set; } = "";
+    public bool VoiceDiscoveryEnabled { get; set; }
+    public bool VoiceUdpDesync { get; set; } = true;
     public uint VoiceSsrc { get; set; }
     public string StrategyList { get; set; } = "";
     public string ImportFolder { get; set; } = "";
@@ -102,7 +109,7 @@ public static class JsonTools
     public static int Port(string value) => int.TryParse(value, out var port) && port is > 0 and <= 65535 ? port : throw new FormatException("Порт должен быть от 1 до 65535.");
     public static string Build(Profile p, Preferences? settings = null)
     {
-        if (!p.Managed) return settings?.DiscordSplit == true ? ApplicationRoutes.Apply(p.Config, p.Core, settings) : p.Config;
+        if (!p.Managed) return settings?.DiscordSplit == true ? ApplicationRoutes.Apply(p.Core == "sing-box" ? ApplicationRoutes.PrepareTun(p.Config) : p.Config, p.Core, settings) : p.Config;
         if (p.Core != "sing-box") throw new InvalidOperationException("Профиль из ссылки использует sing-box. Для другого ядра импортируй его полную конфигурацию.");
         var root = Object(p.Config);
         var inbounds = new JsonArray(new JsonObject { ["type"] = "mixed", ["tag"] = "relay-mixed", ["listen"] = "127.0.0.1", ["listen_port"] = Port(p.LocalPort.ToString()) });

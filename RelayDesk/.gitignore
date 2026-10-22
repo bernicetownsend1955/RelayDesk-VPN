@@ -12,3 +12,8 @@ dist-support/
 dist-flowseal/
 dist-network-fix/
 release/
+installer/core-cache/
+installer/output/
+installer/tools/
+installer/github-release-*/
+installer/*.log

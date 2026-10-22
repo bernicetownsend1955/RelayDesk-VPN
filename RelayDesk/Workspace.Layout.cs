@@ -45,7 +45,7 @@ public partial class Workspace
     void UpdateLogLayout()
     {
         bool visible = ShowLog.IsChecked == true;
-        ContentGrid.RowDefinitions[4].Height = new GridLength(visible ? 180 : 40);
+        ContentGrid.RowDefinitions[4].Height = new GridLength(visible ? 140 : 40);
         ContentGrid.RowDefinitions[3].Height = new GridLength(visible ? 8 : 0);
         Log.Visibility = LogSplitter.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
     }

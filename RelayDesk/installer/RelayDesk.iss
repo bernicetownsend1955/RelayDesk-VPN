@@ -1,8 +1,8 @@
-#ifndef AppVersion
- #define AppVersion "0.10.1"
+﻿#ifndef AppVersion
+ #define AppVersion "0.23.0"
 #endif
 #ifndef PublishDir
- #define PublishDir "..\release\0.10.1"
+ #define PublishDir "..\release\0.23.0"
 #endif
 #ifdef TestBuild
  #define ProductName "RelayDesk Installer QA"
@@ -60,11 +60,11 @@ Name: "{autodesktop}\RelayDesk"; Filename: "{app}\RelayDesk.exe"; WorkingDir: "{
 
 [Run]
 #ifndef TestBuild
-Filename: "{app}\RelayDesk.exe"; Description: "Запустить RelayDesk и настроить ядра"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\RelayDesk.exe"; Description: "Запустить RelayDesk"; Flags: nowait postinstall skipifsilent runasoriginaluser
 #endif
 
 [UninstallRun]
 Filename: "{sys}\WindowsPowerShell\v1.0\powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Remove-Startup.ps1"" -Executable ""{app}\RelayDesk.exe"""; Flags: runhidden; RunOnceId: "RemoveRelayDeskStartup"
 
 [Messages]
-russian.WelcomeLabel2=Установщик разместит RelayDesk в Program Files.%n%nПри первом запуске можно скачать ядра sing-box и Flowseal и импортировать профиль. Существующие профили сохраняются в данных пользователя.
+russian.WelcomeLabel2=Установщик разместит RelayDesk и ядра sing-box, Xray, mihomo и Flowseal/zapret в Program Files.%n%nЯдра включены в пакет и не требуют отдельной загрузки. При первом запуске импортируй профиль или подписку. Существующие профили сохраняются в данных пользователя.

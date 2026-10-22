@@ -18,7 +18,12 @@ public static class RuntimePolicy
         }
         return copy;
     }
-    public static string Config(Profile p, Preferences settings, ConnectionMode mode) => QuickRouting.Apply(JsonTools.Build(p, Settings(settings, mode)), p.Core, p.QuickRoutes);
+    public static string Config(Profile p, Preferences settings, ConnectionMode mode)
+    {
+        var effective = Settings(settings,mode);
+        if (p.Core is not ("sing-box" or "Xray")) effective.DiscordSplit = false;
+        return QuickRouting.Apply(JsonTools.Build(p,effective),p.Core,p.QuickRoutes,mode == ConnectionMode.Combined);
+    }
     public static string[] ZapretArguments(Preferences settings, ConnectionMode mode, string? strategy = null)
     {
         if (!settings.ConditionalRouting || mode != ConnectionMode.ZapretOnly) return DiscordScope.Arguments(Settings(settings, mode), strategy);
@@ -31,9 +36,7 @@ public static class RuntimePolicy
         var bin = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(string.IsNullOrWhiteSpace(settings.ZapretExe) ? "winws.exe" : settings.ZapretExe))!;
         var quic = System.IO.Path.Combine(bin, "quic_initial_www_google_com.bin");
         if (System.IO.File.Exists(quic)) result.Add("--dpi-desync-fake-quic=" + quic);
-        result.AddRange(["--new", "--filter-udp=19294-19344,50000-65535", "--filter-l7=discord,stun", "--dpi-desync=fake", "--dpi-desync-any-protocol=1", "--dpi-desync-cutoff=n3", "--dpi-desync-repeats=6"]);
-        var voice = System.IO.Path.Combine(bin, "ACTIVE_DISCORD_UDP.bin");
-        if (System.IO.File.Exists(voice)) result.AddRange(["--dpi-desync-fake-discord=" + voice, "--dpi-desync-fake-stun=" + voice]);
+        if (settings.VoiceUdpDesync) DiscordScope.AddVoiceProfiles(result, settings.ZapretExe, "19294-19344,50000-65535");
         return result.ToArray();
     }
 }

@@ -29,6 +29,7 @@ public partial class Workspace : UserControl
         Navigation.PreviewMouseLeftButtonDown += NavigationMouseDown;
         AddHandler(Expander.ExpandedEvent, new RoutedEventHandler(DetailsExpanded));
         store = new Store();
+        BundledCores.Bind(store, AppContext.BaseDirectory);
         session = new EngineSession(store, Write);
         session.Changed += UpdateStatus;
         ThemeChoice.ItemsSource = new[] { "Системная", "Светлая", "Тёмная" };
@@ -45,7 +46,7 @@ public partial class Workspace : UserControl
             store.Profiles.Add(new Profile { Name = "Локальный прокси / прямой выход", Protocol = "JSON", Config = "{\n  \"log\": {\"level\": \"info\"},\n  \"inbounds\": [{\"type\": \"mixed\", \"listen\": \"127.0.0.1\", \"listen_port\": 2080}],\n  \"outbounds\": [{\"type\": \"direct\"}]\n}" });
         }
         CoreChoice.SelectionChanged += (_, _) => { if (!loading && selected != null) SettingsHint.Text = "Изменение ядра применяется после сохранения. Формат конфигурации должен ему соответствовать."; };
-        RefreshProfiles(); ProfileList.SelectedIndex = 0;
+        RefreshProfiles(); ProfileList.SelectedItem = store.Profiles.FirstOrDefault(p => p.Id == store.Settings.LastConnectedProfileId) ?? store.Profiles.FirstOrDefault();
         Loaded += LoadedWorkspace;
     }
     void LoadedWorkspace(object sender, RoutedEventArgs e)
@@ -75,7 +76,7 @@ public partial class Workspace : UserControl
         try
         {
             // Let an in-flight startup finish before terminating owned processes.
-            while (session.Busy || automationBusy || updatesBusy || supportBusy || readingConnections) await Task.Delay(100);
+            while (session.Busy || automationBusy || updatesBusy || supportBusy || readingConnections || subscriptionBusy || pingBusy) await Task.Delay(100);
             connectionMonitor.Dispose();
             support.Dispose();
             await session.StopAll(); SaveGlobal();
@@ -131,7 +132,7 @@ public partial class Workspace : UserControl
         TcpButton.IsEnabled = !automationBusy;
         RefreshUpdateButtons();
     }
-    void RefreshProfiles() { ProfileList.ItemsSource = null; ProfileList.ItemsSource = store.Profiles; RefreshStartupProfiles(); }
+    void RefreshProfiles() { RefreshGroupedProfiles(); RefreshStartupProfiles(); }
     string Fields() => string.Join("\n", ProfileName.Text, CoreChoice.SelectedItem, Tun.IsChecked, SystemProxy.IsChecked, Dns.Text, LocalPort.Text, ProxyAddress.Text, TcpHost.Text, TcpPort.Text, AutoCandidate.IsChecked);
     bool HasChanges() => selected != null && (savedFields != Fields() || savedConfig != ConfigEditor.Text);
     bool CanSwitch()
@@ -168,6 +169,9 @@ public partial class Workspace : UserControl
         if (p.QuickRoutes.Count > 0) ConfigHint.Text += " Быстрые правила из «Соединений» хранятся отдельно в профиле и добавляются при запуске ядра.";
         if (!p.Managed && RuntimePolicy.Settings(store.Settings, session.ZapretRunning ? ConnectionMode.Combined : ConnectionMode.VpnOnly).DiscordSplit) ConfigHint.Text += " При совместном запуске добавляются исключения Discord и выбранных EXE; DNS и исходные правила сохраняются.";
         ServerTitle.Text = p.Name; ServerDescription.Text = p.Protocol + " / " + p.Core + (p.Host.Length > 0 ? $"\n{p.Host}:{p.Port}" : "\nПолная конфигурация");
+        SidebarProfileName.Text = p.Name; SidebarProfileGroup.Text = p.Core + (p.SubscriptionGroup.Length > 0 ? " / "+p.SubscriptionGroup : "");
+        EnableProfileProxy.Visibility = p.Core == "Xray" && !p.SystemProxy ? Visibility.Visible : Visibility.Collapsed;
+        if (p.Core == "Xray") ServerDescription.Text += "\nHTTP-прокси. Разделение Discord — по доменам; правила EXE и TUN доступны в sing-box.";
         savedFields = Fields(); savedConfig = ConfigEditor.Text;
         TcpResult.Text = "Не проверено"; HttpsResult.Text = "Не проверено"; ActionMessage.Text = "";
         loading = false; UpdateStatus();
@@ -234,6 +238,7 @@ public partial class Workspace : UserControl
     });
     void AddProfile(Profile p)
     {
+        p.SubscriptionGroup = CurrentSubscriptionGroup;
         store.Profiles.Add(p); store.Save(); selected = null;
         loading = true; RefreshProfiles(); loading = false; ProfileList.SelectedItem = p;
     }
@@ -246,7 +251,7 @@ public partial class Workspace : UserControl
         else { ServerTitle.Text = "Добавь сервер"; ServerDescription.Text = "Вставь ссылку из буфера или импортируй JSON."; ConfigEditor.Clear(); UpdateStatus(); }
         return Task.CompletedTask;
     });
-    void Paste(object sender, RoutedEventArgs e) => Safe(() => { ImportText(Clipboard.GetText()); return Task.CompletedTask; });
+    void Paste(object sender, RoutedEventArgs e) => Safe(async () => { var text = Clipboard.GetText().Trim(); if (text.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || text.StartsWith("happ://add/", StringComparison.OrdinalIgnoreCase)) await ImportSubscription(text); else ImportText(text); });
     void ImportFile(object sender, RoutedEventArgs e) => Safe(() =>
     {
         var dialog = new OpenFileDialog { Filter = "Конфигурации и ссылки|*.json;*.yaml;*.yml;*.txt|Все файлы|*.*" };
@@ -327,7 +332,7 @@ public partial class Workspace : UserControl
             using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
             dark = key?.GetValue("AppsUseLightTheme") is int value && value == 0;
         }
-        var colors = dark ? new[] { "#141716", "#1C201E", "#ECEFED", "#A1AAA5", "#343C37", "#65A884", "#263C30" } : new[] { "#F5F6F5", "#FFFFFF", "#202923", "#68736B", "#DDE2DE", "#286548", "#E8F0EA" };
+        var colors = dark ? new[] { "#191919", "#222222", "#F3F3F3", "#B2B2B2", "#383838", "#82B49A", "#2D3C33" } : new[] { "#F6F6F6", "#FFFFFF", "#202020", "#626262", "#DEDEDE", "#286548", "#E5EFE9" };
         var keys = new[] { "Page", "Surface", "Ink", "Muted", "Line", "Accent", "Selected" };
         for (var i = 0; i < keys.Length; i++) Application.Current.Resources[keys[i]] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(colors[i]));
         var window = Window.GetWindow(this);

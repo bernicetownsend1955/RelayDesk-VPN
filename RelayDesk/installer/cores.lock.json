@@ -1,0 +1,38 @@
+[
+    {
+        "Id":  "sing-box",
+        "Repository":  "SagerNet/sing-box",
+        "Version":  "v1.14.3",
+        "Url":  "https://github.com/SagerNet/sing-box/releases/download/v1.14.3/sing-box-1.14.3-windows-amd64.zip",
+        "Size":  32853953,
+        "Sha256":  "d8b86ef58936dba9230ec6a57ffa4243933f3c14ef4809828b6c553440ed1518",
+        "Executable":  "sing-box.exe"
+    },
+    {
+        "Id":  "Xray",
+        "Repository":  "XTLS/Xray-core",
+        "Version":  "v26.3.27",
+        "Url":  "https://github.com/XTLS/Xray-core/releases/download/v26.3.27/Xray-windows-64.zip",
+        "Size":  20913304,
+        "Sha256":  "d004c39288ce9ada487c6f398c7c545f7d749e44bdfdd59dbc9f865afba4e1ad",
+        "Executable":  "xray.exe"
+    },
+    {
+        "Id":  "mihomo",
+        "Repository":  "MetaCubeX/mihomo",
+        "Version":  "v1.19.32",
+        "Url":  "https://github.com/MetaCubeX/mihomo/releases/download/v1.19.32/mihomo-windows-amd64-compatible-v1.19.32.zip",
+        "Size":  22525067,
+        "Sha256":  "974a4d7ad69aed27aa2e8f91d61113573c14dadb14562c63e58effabf59816f0",
+        "Executable":  "mihomo.exe"
+    },
+    {
+        "Id":  "zapret",
+        "Repository":  "Flowseal/zapret-discord-youtube",
+        "Version":  "1.10.3",
+        "Url":  "https://github.com/Flowseal/zapret-discord-youtube/releases/download/1.10.3/zapret-discord-youtube-1.10.3.zip",
+        "Size":  1510219,
+        "Sha256":  "244314ae1c24538a0d751601da8e0c925c843371eec4456eb15f14c4fd6b7058",
+        "Executable":  "winws.exe"
+    }
+]

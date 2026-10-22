@@ -29,7 +29,7 @@ public static class ImportParser
         if (Uri.TryCreate(text, UriKind.Absolute, out var uri) && uri.Scheme is "vless" or "trojan" or "vmess") return Link(uri);
         if (text.Contains("proxies:") || text.Contains("proxy-providers:") || text.Contains("mixed-port:"))
             return new(new Profile { Name = "Импорт mihomo", Core = "mihomo", Config = text, Protocol = "YAML" }, "YAML / mihomo. Содержимое проверит ядро. Адрес TCP и локальный прокси задай в настройках профиля.");
-        throw new FormatException("Формат не распознан. Поддерживаются VLESS, VMess, Trojan, Shadowsocks, JSON и YAML mihomo. Подписки и списки ссылок пока импортируй по одному серверу.");
+        throw new FormatException("Формат не распознан. Поддерживаются VLESS, VMess, Trojan, Shadowsocks, JSON и YAML mihomo. Для HTTPS-подписки используй «Подписки / обновить».");
     }
     static ImportResult Json(string text)
     {

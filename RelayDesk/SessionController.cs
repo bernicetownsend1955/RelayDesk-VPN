@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Security.Principal;
@@ -7,6 +7,7 @@ namespace RelayDesk;
 
 public sealed class EngineSession(Store store, Action<string> log)
 {
+    public XrayConnectionHistory XrayConnections { get; } = new();
     public Process? Proxy { get; private set; }
     public Process? Zapret { get; private set; }
     public Profile? ActiveProfile { get; private set; }
@@ -34,8 +35,9 @@ public sealed class EngineSession(Store store, Action<string> log)
         var info = new ProcessStartInfo(Path.GetFullPath(executable)) { WorkingDirectory = Path.GetDirectoryName(Path.GetFullPath(executable))!, UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in args) info.ArgumentList.Add(arg);
         var process = new Process { StartInfo = info };
-        process.OutputDataReceived += (_, e) => { if (e.Data != null) log($"[{label}] {e.Data}"); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data != null) log($"[{label}] {e.Data}"); };
+        void Output(string? data) { if(data == null) return; if(label=="Xray" && (XrayConnections.Record(data) || data.Contains(" accepted ",StringComparison.Ordinal))) return; log($"[{label}] {data}"); }
+        process.OutputDataReceived += (_, e) => Output(e.Data);
+        process.ErrorDataReceived += (_, e) => Output(e.Data);
         return process;
     }
     static void Start(Process process) { process.Start(); CoreLifetime.Attach(process); process.BeginOutputReadLine(); process.BeginErrorReadLine(); }
@@ -43,7 +45,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     {
         "sing-box" => [check ? "check" : "run", "-c", config],
         "Xray" => check ? ["run", "-test", "-config", config] : ["run", "-config", config],
-        "mihomo" => check ? ["-t", "-f", config] : ["-f", config],
+        "mihomo" => check ? ["-t", "-f", config,"-d",Path.GetDirectoryName(config)!] : ["-f", config,"-d",Path.GetDirectoryName(config)!],
         _ => throw new InvalidOperationException("Для winws используй отдельную панель zapret.")
     };
     string WriteConfig(Profile p, bool check, Preferences settings, ConnectionMode mode)
@@ -91,7 +93,15 @@ public sealed class EngineSession(Store store, Action<string> log)
         try
         {
             await StopOwned();
-            try { await StartMode(profile, zapret, store.Settings, target); }
+            try
+            {
+                await StartMode(profile, zapret, store.Settings, target);
+                if (profile != null)
+                {
+                    store.Settings.LastConnectedProfileId = profile.Id;
+                    try { store.Save(); } catch (Exception ex) { log("Не удалось запомнить сервер: " + ex.Message); }
+                }
+            }
             catch (Exception failure)
             {
                 await StopOwned();
@@ -109,7 +119,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     void Preflight(Profile? p, bool zapret, Preferences settings, ConnectionMode mode)
     {
         var effective = RuntimePolicy.Settings(settings, mode);
-        bool rawTun = p is { Managed: false, Core: "sing-box" } && (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true;
+        bool rawTun = p is { Managed: false, Core: "sing-box" } && (effective.DiscordSplit || (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true);
         if ((zapret || rawTun || p != null && (p.Managed && p.Tun || effective.DiscordSplit)) && !IsAdmin()) throw new InvalidOperationException("Для zapret / TUN запусти RelayDesk от имени администратора.");
         if (p != null)
         {
@@ -129,7 +139,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             _ = WriteConfig(p, false, settings, mode);
             if (rawTun && !ProxyRunning && NetworkInterface.GetAllNetworkInterfaces().Any(n => n.OperationalStatus == OperationalStatus.Up && n.Description.Contains("sing-tun", StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Уже работает TUN другого приложения. Отключи его перед запуском RelayDesk.");
         }
-        if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = RuntimePolicy.ZapretArguments(settings, mode); }
+        if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode), p?.QuickRoutes ?? [], settings.ZapretExe, settings.VoiceUdpDesync); }
     }
     static bool HasLocalInput(Profile p) => p.Managed || p.SystemProxy || p.Core is "sing-box" or "Xray" && (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?[p.Core == "sing-box" ? "type" : "protocol"]) is "mixed" or "socks" or "http") == true;
     async Task StartMode(Profile? p, bool zapret, Preferences settings, ConnectionMode mode)
@@ -142,8 +152,10 @@ public sealed class EngineSession(Store store, Action<string> log)
             var restored = ProxyLease.DisableUnavailableProfileProxy(endpoints);
             if (restored.Length > 0) log(restored);
         }
-        if (zapret) await StartZapretCore(settings, mode);
+        if (zapret) await StartZapretCore(settings, mode, routes: p?.QuickRoutes);
         if (p != null) await StartProxyCore(p, settings, mode);
+        if (p?.Core == "Xray" && RuntimePolicy.Settings(settings,mode).DiscordSplit)
+            log("Xray: Discord направлен напрямую по доменам и указанным IP голоса. Правила EXE требуют профиля sing-box с TUN и к Xray не применяются.");
         Mode = mode;
         activeSettings = System.Text.Json.JsonSerializer.Deserialize<Preferences>(System.Text.Json.JsonSerializer.Serialize(settings))!;
         log("Режим: " + RuntimePolicy.Label(mode)); Changed?.Invoke();
@@ -153,10 +165,17 @@ public sealed class EngineSession(Store store, Action<string> log)
         var proxy = JsonTools.LocalProxy(p);
         if (HasLocalInput(p) && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(x => x.Port == proxy.Port)) throw new InvalidOperationException($"Локальный порт {proxy.Port} уже занят.");
         var runtime = WriteConfig(p, false, settings, mode);
+        XrayConnections.Clear();
+        if(p.Core=="Xray") File.WriteAllText(runtime,XrayConnectionHistory.Configure(File.ReadAllText(runtime)));
         if (p.Core == "sing-box")
         {
             var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0); listener.Start(); var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
             File.WriteAllText(runtime, ConnectionMonitor.Configure(File.ReadAllText(runtime), port));
+        }
+        if(p.Core=="mihomo")
+        {
+            var listener=new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback,0); listener.Start(); var port=((System.Net.IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
+            File.WriteAllText(runtime,MihomoConnections.Configure(File.ReadAllText(runtime),port));
         }
         var process = Create(Executable(p, settings), Arguments(p, runtime, false), p.Core);
         Proxy = process; ActiveProfile = p; Start(process);
@@ -174,13 +193,14 @@ public sealed class EngineSession(Store store, Action<string> log)
         if (p.SystemProxy) { lease.Apply(proxy); log("Системный прокси включён до отключения VPN."); }
         log($"[{p.Core}] PID {process.Id}"); _ = Observe(process, false);
     }
-    async Task StartZapretCore(Preferences settings, ConnectionMode mode, string? strategy = null)
+    async Task StartZapretCore(Preferences settings, ConnectionMode mode, string? strategy = null, IEnumerable<QuickRoute>? routes = null)
     {
-        var arguments = RuntimePolicy.ZapretArguments(settings, mode, strategy);
+        var arguments = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode, strategy), routes ?? [], settings.ZapretExe, settings.VoiceUdpDesync);
         var process = Create(settings.ZapretExe, arguments, "zapret");
         Zapret = process; Start(process); await Task.Delay(500);
         if (process.HasExited) throw new InvalidOperationException($"zapret завершился: код {process.ExitCode}.");
         ActiveZapretArguments = arguments;
+        if (!settings.VoiceUdpDesync) log("[zapret] Голосовые UDP-профили отключены; маршруты сохранены.");
         log($"[zapret] PID {process.Id}"); _ = Observe(process, true);
     }
     async Task Observe(Process process, bool zapret)

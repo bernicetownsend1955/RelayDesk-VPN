@@ -12,6 +12,8 @@ public sealed record ConnectionRow(string Id, string Application, string Destina
     public string Host { get; init; } = "";
     public string Address { get; init; } = "";
     public long TotalBytes { get; init; }
+    public bool CanEdit { get; init; } = true;
+    public bool CanEditApplication => CanEdit && (ProcessPath.Length > 0 || Application.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
 }
 
 public sealed class ConnectionMonitor : IDisposable
@@ -81,7 +83,7 @@ public sealed class ConnectionMonitor : IDisposable
         foreach (var type in resolved)
         {
             if (type is "block" or "reject") return "Блокировка";
-            if (type is "vless" or "vmess" or "trojan" or "shadowsocks" or "hysteria" or "hysteria2" or "tuic" or "wireguard" or "socks" or "http") return "Через VPN / прокси";
+            if (type is "vless" or "vmess" or "trojan" or "shadowsocks" or "hysteria" or "hysteria2" or "tuic" or "wireguard" or "socks" or "http" or "ssr" or "anytls" or "snell" or "ssh" or "mieru") return "Через VPN / прокси";
         }
         if (resolved.Contains("direct")) return "Напрямую";
         return "Маршрут не определён";
