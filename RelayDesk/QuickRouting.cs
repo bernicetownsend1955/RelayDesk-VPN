@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace RelayDesk;
 
-public record QuickRoute(string Kind, string Value, string Outbound, bool Direct = false, bool Zapret = false);
+public record QuickRoute(string Kind, string Value, string Outbound, bool Direct = false, bool Zapret = false, string Name = "", string Id = "");
 
 public static class QuickRouting
 {
@@ -52,7 +52,7 @@ public static class QuickRouting
         foreach (var entry in entries)
         {
             Validate(entry);
-            if (entry.Kind is not ("domain" or "domain_suffix" or "ip_cidr")) throw new InvalidOperationException("Для Xray выбери домен или IP: журнал не определяет приложение.");
+            if (entry.Kind is not ("domain" or "domain_suffix" or "domain_keyword" or "ip_cidr")) throw new InvalidOperationException("Для Xray выбери домен или IP: журнал не определяет приложение.");
             var tag = entry.Outbound;
             if (entry.Direct || entry.Zapret)
             {
@@ -66,7 +66,7 @@ public static class QuickRouting
                 }
             }
             else if (!outbounds.Any(o => JsonTools.Text(o?["tag"]) == tag && JsonTools.Text(o?["protocol"]) is not ("freedom" or "blackhole" or "dns"))) throw new FormatException("Выход быстрого правила удалён из профиля: " + tag);
-            result.Add(new JsonObject { ["type"] = "field", [entry.Kind == "ip_cidr" ? "ip" : "domain"] = new JsonArray(entry.Kind == "ip_cidr" ? entry.Value : (entry.Kind == "domain" ? "full:" : "domain:") + entry.Value), ["outboundTag"] = tag });
+            result.Add(new JsonObject { ["type"] = "field", [entry.Kind == "ip_cidr" ? "ip" : "domain"] = new JsonArray(entry.Kind == "ip_cidr" ? entry.Value : (entry.Kind == "domain" ? "full:" : entry.Kind=="domain_suffix" ? "domain:" : "") + entry.Value), ["outboundTag"] = tag });
         }
         foreach (var rule in routing["rules"] as JsonArray ?? []) result.Add(rule?.DeepClone());
         routing["rules"] = result;
@@ -80,7 +80,8 @@ public static class QuickRouting
             case "process_path": _ = ApplicationRoutes.Paths([route.Value]); break;
             case "process_name": if (route.Value.IndexOfAny(['/', '\\', '\r', '\n']) >= 0 || !route.Value.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) throw new FormatException("Некорректное имя процесса."); break;
             case "domain": case "domain_suffix": if (Uri.CheckHostName(route.Value) != UriHostNameType.Dns || route.Value.Contains(':')) throw new FormatException("Некорректное имя домена."); break;
-            case "ip_cidr": var parts = route.Value.Split('/'); if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var address) || parts[1] != (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? "32" : "128")) throw new FormatException("Укажи отдельный IP-адрес."); break;
+            case "domain_keyword": if(route.Value.Any(char.IsWhiteSpace)||route.Value.IndexOfAny(['/',':','*','?'])>=0)throw new FormatException("Некорректное слово в домене.");break;
+            case "ip_cidr": var parts = route.Value.Split('/'); if (parts.Length != 2 || !IPAddress.TryParse(parts[0], out var address) || !int.TryParse(parts[1],out int prefix)||prefix<0||prefix>address.GetAddressBytes().Length*8) throw new FormatException("Укажи корректную IP-подсеть."); break;
             default: throw new FormatException("Неизвестный тип быстрого правила.");
         }
     }

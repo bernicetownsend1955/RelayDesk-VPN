@@ -76,6 +76,7 @@ public sealed class EngineSession(Store store, Action<string> log)
         return Transition(p, withZapret || ZapretRunning);
     }
     public Task StartZapret() => Transition(ProxyRunning ? ActiveProfile : null, true);
+    public Task SwitchProfile(Profile profile) => Transition(profile,ZapretRunning);
     public Task Reconfigure(Profile profile) => ProxyRunning && ActiveProfile?.Id == profile.Id ? Transition(profile, ZapretRunning) : throw new InvalidOperationException("Профиль сейчас не запущен в RelayDesk.");
     public Task StopProxy() => Transition(null, ZapretRunning);
     public Task StopZapret() => Transition(ProxyRunning ? ActiveProfile : null, false);

@@ -22,7 +22,7 @@ public partial class Workspace
     }
     async Task ReadConnections()
     {
-        if (readingConnections || closing || ConnectionTab.IsSelected != true || PauseConnections.IsChecked == true) return;
+        if (readingConnections || closing || ConnectionTab.IsSelected != true && !ModernConnectionsVisible || PauseConnections.IsChecked == true) return;
         readingConnections = true;
         try
         {

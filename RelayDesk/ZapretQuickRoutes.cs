@@ -7,6 +7,7 @@ public static class ZapretQuickRoutes
         var entries = routes.Where(r => r.Zapret).ToArray();
         if (entries.Length == 0) return arguments;
         foreach (var entry in entries) QuickRouting.Validate(entry);
+        if(entries.Any(e=>e.Kind=="domain_keyword"))throw new InvalidOperationException("Для zapret выбери точный домен, домен с поддоменами или IP. Слово в домене не задаёт безопасный фильтр winws.");
         // Reuse the first TCP strategy, including payload files and repeat/cutoff settings.
         var sections = new List<List<string>> { new() };
         foreach (var arg in arguments)
