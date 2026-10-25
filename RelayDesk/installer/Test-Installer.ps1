@@ -32,7 +32,7 @@ try {
         foreach($file in $core.Files) { if ((Get-FileHash -LiteralPath (Join-Path $bundled $file.Path) -Algorithm SHA256).Hash.ToLowerInvariant() -ne $file.Sha256) { throw ('Installed core differs: '+$file.Path) } }
     }
     Write-Output 'PASS Program Files install, runtime, four bundled cores, hashes and uninstall registration'
-    $uiCheck = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'RelayDesk.Checks\UiSmoke.ps1'
+    $uiCheck = Join-Path (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent) 'RelayDesk.Checks\ModernSmoke.ps1'
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $uiCheck -Executable (Join-Path $destination 'RelayDesk.exe') -CheckRouting -CheckTun -ExpectBundledCores
     if ($LASTEXITCODE) { throw 'Installed application UI checks failed' }
 } finally {

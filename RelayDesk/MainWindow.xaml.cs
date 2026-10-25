@@ -38,12 +38,16 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();Title="RelayDesk "+AppUpdates.CurrentVersion;
+        BuildVersion.Text=Title;
         Width=Math.Min(1320,SystemParameters.WorkArea.Width-32);Height=Math.Min(920,SystemParameters.WorkArea.Height-32);
         MinWidth=Math.Min(1040,Width);MinHeight=Math.Min(740,Height);
         backend=new Workspace();backend.ModernPrepareData();BackendHost.Content=backend;
         backend.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/Theme.xaml")});
         foreach(var pair in new[]{("Page","#101318"),("Surface","#1B1E25"),("Ink","#ECEEF2"),("Muted","#9DA3AF"),("Line","#3D4350"),("Accent","#D2DAE6"),("Selected","#303641"),("Action","#444C59")})backend.Resources[pair.Item1]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(pair.Item2));
         if(backend.ThemeChoice.Parent is FrameworkElement themePanel)themePanel.Visibility=Visibility.Collapsed;
+        backend.ModernEmbed();
+        backend.ModernSectionChanged+=SyncModernSection;
+        AdvancedSection.ItemsSource=new[]{"Профиль: подключение и TUN","JSON / YAML","Ядра","Маршруты и диагностика","Импорт из приложений","Обновления","Профили и подписки"};
         var p=backend.ModernStore.Settings;
         state.Motion=p.InterfaceMotion;state.Glass=p.GraphiteGlass;state.CityMotion=p.AsciiBackground;state.QuietMode=p.QuietMode;state.TrayEnabled=p.TrayEnabled;
         state.AutoServer=p.AutoServer;state.AutoStrategy=p.AutoZapret;
@@ -132,6 +136,7 @@ public partial class MainWindow : Window
     void Navigate(object sender,RoutedEventArgs e){if(sender is Button b&&int.TryParse(b.Tag?.ToString(),out int i))SelectPage(i);}
     void SelectPage(int index)
     {
+        AdvancedHost.Visibility=Visibility.Collapsed;Scroller.Visibility=Visibility.Visible;
         currentPage=index;var pages=new[]{HomePage,ProfilesPage,AppsPage,SettingsPage,ConnectionsPage};for(int i=0;i<pages.Length;i++)pages[i].Visibility=i==index?Visibility.Visible:Visibility.Collapsed;
         foreach(var b in Navigation.Children.OfType<Button>()){bool active=b.Tag?.ToString()==index.ToString();b.Background=new SolidColorBrush(active?Color.FromArgb(22,230,235,245):Colors.Transparent);b.BorderBrush=new SolidColorBrush(active?Color.FromArgb(35,230,235,245):Colors.Transparent);}
         backend.ModernConnectionsVisible=index==4;Scroller.ScrollToTop();FadeIn(PageHost);if(index==1)RefreshProfiles();if(index==4)RefreshConnections();
@@ -199,11 +204,18 @@ public partial class MainWindow : Window
     void ToggleAdvanced(object sender,RoutedEventArgs e){AdvancedPanel.Visibility=AdvancedPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;}
     void ToggleJournal(object sender,RoutedEventArgs e){JournalPanel.Visibility=JournalPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;Journal.Text=backend.ModernLog;}
     void OpenSettings(object sender,RoutedEventArgs e)=>SelectPage(3);
-    void ShowAdvanced(int tab){WakeQuietMode();StandardContent.Visibility=Visibility.Collapsed;AdvancedHost.Visibility=Visibility.Visible;backend.ModernOpen(tab);}
+    void ShowAdvanced(int tab)
+    {
+        WakeQuietMode();Scroller.Visibility=Visibility.Collapsed;AdvancedHost.Visibility=Visibility.Visible;
+        var index=Array.IndexOf(AdvancedTabs,tab);AdvancedSection.SelectedIndex=index>=0?index:0;backend.ModernOpen(tab);backend.ModernRestyle();
+    }
     void OpenAdvanced(object sender,RoutedEventArgs e)=>ShowAdvanced(1);
-    void OpenStartup(object sender,RoutedEventArgs e)=>ShowAdvanced(1);
+    void OpenStartup(object sender,RoutedEventArgs e)
+    {
+        SelectPage(3);LoadModernStartup();StartupPanel.Visibility=Visibility.Visible;StartupPanel.BringIntoView();
+    }
     void OpenUpdates(object sender,RoutedEventArgs e)=>ShowAdvanced(6);
-    void BackToPanel(object sender,RoutedEventArgs e){AdvancedHost.Visibility=Visibility.Collapsed;StandardContent.Visibility=Visibility.Visible;RefreshFromBackend();}
+    void BackToPanel(object sender,RoutedEventArgs e){SelectPage(currentPage);RefreshFromBackend();}
     async void ApplyRules(object sender,RoutedEventArgs e){try{await backend.ModernApplyRoutes();if(backend.ModernProfile!=null)pendingRules.Remove(backend.ModernProfile.Id);Toast("Правила применены. Соединения переподключены.");}catch(Exception ex){Toast(ex.Message);}}
     void Toast(string text){Notice.Text=ProgramJournal.Clean(text);}
     void Save()

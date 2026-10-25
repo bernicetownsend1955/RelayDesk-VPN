@@ -2,6 +2,31 @@
 
 Приложение для Windows: sing-box, Xray, mihomo и zapret, импорт VPN-профилей и настройка маршрутов по приложениям и адресам.
 
+![Главный экран RelayDesk: отдельные кнопки VPN и zapret, маршруты и ASCII-фон](docs/images/dashboard.png)
+
+Снимки версии 0.25.2 с тестовым профилем. Ядра выключены; личные подписки и ключи на снимках отсутствуют. На снимках ниже выбран плотный фон без ASCII-анимации.
+
+<details>
+<summary>Профили и группы подписок</summary>
+
+![Профили RelayDesk: выбор профиля, управление группами и проверка задержки](docs/images/profiles.png)
+
+</details>
+
+<details>
+<summary>Правила приложений и сайтов</summary>
+
+![Правила RelayDesk: точный домен, поддомены, выбор маршрута, изменение и удаление](docs/images/rules.png)
+
+</details>
+
+<details>
+<summary>Автозапуск Windows</summary>
+
+![Настройки автозапуска RelayDesk: запуск с Windows, независимое включение VPN и zapret, выбор профиля](docs/images/startup.png)
+
+</details>
+
 ## Установка
 
 Скачай `RelayDesk-Setup-<версия>-x64.exe` из [Releases](https://github.com/bernicetownsend1955/RelayDesk-VPN/releases/latest). Установщик включает ядра; скачивать их отдельно не нужно. Настройки и профили сохраняются в `%LOCALAPPDATA%\RelayDesk`.
@@ -27,6 +52,15 @@ dotnet build .\RelayDesk\RelayDesk.csproj -c Release
 ```
 
 Сборка установщика описана в [инструкции](RelayDesk/installer/README.md). Исходники находятся в папке [RelayDesk](RelayDesk).
+
+Проверки интерфейса запускаются в Windows с отдельными тестовыми данными:
+
+```powershell
+dotnet run --project .\RelayDesk.ModernChecks -c Release
+dotnet run --project .\RelayDesk.UIchecks -c Release
+```
+
+Они проверяют навигацию, диалоги, сохранение правил и автозапуска, обработку ошибок без установленных ядер и сохранность профиля. Проверка доступности реального VPN-сервера требует отдельного подключения.
 
 ## Выпуск обновлений
 

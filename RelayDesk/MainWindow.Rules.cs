@@ -62,7 +62,7 @@ public partial class MainWindow
     {
         if(rule.Kind=="default")return;
         deletedIndex=state.Rules.IndexOf(rule);deletedRule=rule;state.Rules.Remove(rule);UndoRuleButton.Visibility=Visibility.Visible;
-        if(PersistRules())RefreshRoutes();Toast("Удалено: "+rule.Name+". Можно вернуть кнопкой «Отменить удаление».");
+        if(PersistRules()){RefreshRoutes();Toast("Удалено: "+rule.Name+". Можно вернуть кнопкой «Отменить удаление».");}
     }
     void UndoRule(object sender,RoutedEventArgs e)
     {

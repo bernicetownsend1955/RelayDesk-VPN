@@ -5,6 +5,36 @@ using System.Windows;
 namespace RelayDesk;
 public partial class Workspace
 {
+    public event Action<int>? ModernSectionChanged;
+    public void ModernSaveStartup(bool enabled,bool vpn,bool zapret,Profile? profile)
+    {
+        WindowsStartupToggle.IsChecked=enabled;StartupVpnToggle.IsChecked=vpn;StartupZapretToggle.IsChecked=zapret;StartupProfileChoice.SelectedItem=profile;
+        SaveStartupSettings();
+    }
+    public void ModernEmbed()
+    {
+        var root=(System.Windows.Controls.Grid)Content;
+        root.ColumnDefinitions[0].Width=new GridLength(0);root.ColumnDefinitions[1].Width=new GridLength(0);
+        foreach(var child in root.Children.OfType<FrameworkElement>().Where(e=>System.Windows.Controls.Grid.GetColumn(e)==0))child.Visibility=Visibility.Collapsed;
+        ContentGrid.Margin=new Thickness(0);
+        foreach(var child in ContentGrid.Children.OfType<FrameworkElement>().Where(e=>System.Windows.Controls.Grid.GetRow(e)==0))child.Visibility=Visibility.Collapsed;
+        Background=System.Windows.Media.Brushes.Transparent;
+        Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/ModernTheme.xaml")});
+        Tabs.SelectionChanged+=(_,e)=>{if(ReferenceEquals(e.Source,Tabs))ModernSectionChanged?.Invoke(Tabs.SelectedIndex);};
+    }
+    public void ModernRestyle()
+    {
+        UpdateLayout();
+        void Visit(System.Windows.DependencyObject node)
+        {
+            if(node is System.Windows.Controls.Button button)button.Style=(Style)FindResource(typeof(System.Windows.Controls.Button));
+            else if(node is System.Windows.Controls.TextBox field)field.Style=(Style)FindResource(typeof(System.Windows.Controls.TextBox));
+            else if(node is System.Windows.Controls.ComboBox combo)combo.Style=(Style)FindResource(typeof(System.Windows.Controls.ComboBox));
+            else if(node is System.Windows.Controls.CheckBox check)check.Style=(Style)FindResource(typeof(System.Windows.Controls.CheckBox));
+            for(int i=0;i<System.Windows.Media.VisualTreeHelper.GetChildrenCount(node);i++)Visit(System.Windows.Media.VisualTreeHelper.GetChild(node,i));
+        }
+        Visit(Tabs);
+    }
     public Store ModernStore=>store;
     public EngineSession ModernSession=>session;
     public Profile? ModernProfile=>selected;
