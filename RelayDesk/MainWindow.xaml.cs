@@ -119,7 +119,7 @@ public partial class MainWindow : Window
             var profile=backend.ModernProfile??throw new InvalidOperationException("Выбери профиль.");
             string proxy=ProxyTag(profile);
             var routes=state.Rules.Where(r=>r.Kind!="default").Select(r=>new QuickRoute(r.Kind,r.Value,r.Route=="Через zapret"?"@zapret":r.Route=="Напрямую"?"@direct":r.OutboundTag.Length>0&&!r.OutboundTag.StartsWith('@')?r.OutboundTag:proxy,r.Route=="Напрямую",r.Route=="Через zapret",r.Name,r.Id)).ToArray();
-            backend.ModernSaveRoutes(routes);ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(profile.QuickRoutes);pendingRules.Add(profile.Id);RefreshRoutes();return true;
+            backend.ModernSaveRoutes(routes);ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(backend.ModernProfile!.QuickRoutes);pendingRules.Add(profile.Id);RefreshRoutes();return true;
         }
         catch(Exception ex){LoadProfileRules();Toast(ProgramJournal.Clean(ex.Message));return false;}
     }

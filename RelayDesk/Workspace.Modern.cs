@@ -58,9 +58,11 @@ public partial class Workspace
         copy.QuickRoutes=routes.ToList();
         _=RuntimePolicy.Config(copy,store.Settings,session.ZapretRunning?ConnectionMode.Combined:ConnectionMode.VpnOnly);
         if(routes.Any(r=>r.Zapret))_=ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(store.Settings,ConnectionMode.Combined),routes,store.Settings.ZapretExe,store.Settings.VoiceUdpDesync);
-        var previous=profile.QuickRoutes;profile.QuickRoutes=routes.ToList();
-        try{store.Save();}catch{profile.QuickRoutes=previous;throw;}
-        DisplayProfile();
+        // Keep the active session's profile snapshot intact until Reconfigure.
+        // Otherwise Transition sees the same object and skips the restart.
+        var index=store.Profiles.IndexOf(profile);store.Profiles[index]=copy;
+        try{store.Save();}catch{store.Profiles[index]=profile;throw;}
+        selected=copy;loading=true;RefreshProfiles();ProfileList.SelectedItem=copy;loading=false;DisplayProfile();
     }
     public async Task ModernApplyRoutes()
     {

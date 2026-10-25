@@ -51,3 +51,12 @@ jobs:
         run: |
           $notes = 'RelayDesk/installer/release-notes-'+$env:RELEASE_VERSION+'.md'
           & ./RelayDesk/installer/Publish-Release.ps1 -Repository $env:GITHUB_REPOSITORY -NotesFile $notes -SkipBuild -Publish
+      - name: Hide superseded 0.25.0 build
+        if: github.ref == 'refs/tags/v0.25.1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $headers = @{ Authorization = 'Bearer '+$env:GH_TOKEN; Accept = 'application/vnd.github+json' }
+          $api = 'https://api.github.com/repos/'+$env:GITHUB_REPOSITORY+'/releases'
+          $old = Invoke-RestMethod -Uri ($api+'/tags/v0.25.0') -Headers $headers
+          Invoke-RestMethod -Method Patch -Uri ($api+'/'+$old.id) -Headers $headers -ContentType 'application/json' -Body '{"draft":true}' | Out-Null
