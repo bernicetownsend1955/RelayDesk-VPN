@@ -114,6 +114,12 @@ static class Program
             int RowCount()=>((Panel)window.FindName("ConnectionRows")).Children.OfType<Button>().Count();
             void Filter(string name,string value){((TextBox)window.FindName(name)).Text=value;}
             Check(RowCount()==3,"Connection table renders all actual fixture rows");
+            Check(!((FrameworkElement)window.FindName("ConnectionAppFilter")).IsVisible&&((UIElement)window.FindName("ConnectionBatchToolbar")).Visibility==Visibility.Collapsed,"Compact table hides filters and batch toolbar by default");
+            var filterHeader=((Grid)window.FindName("ConnectionColumnHeaders")).Children.OfType<Button>().First(b=>b.Tag.ToString()=="0");
+            filterHeader.ContextMenu!.IsOpen=true;Pump();
+            var filterInput=(TextBox)((StackPanel)((MenuItem)filterHeader.ContextMenu.Items[0]).Header).Children[1];
+            filterInput.SetCurrentValue(TextBox.TextProperty,"Discord");Pump();Check(RowCount()==2,"Header context filter edits actual column filter through two-way binding");
+            filterHeader.ContextMenu.IsOpen=false;Pump();Check(((UIElement)window.FindName("ConnectionFilterToolbar")).Visibility==Visibility.Visible,"Active column filter is summarized after context menu closes");Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());
             foreach(var test in new[]{("ConnectionAppFilter","Discord",2),("ConnectionDestinationFilter","voice",1),("ConnectionTypeFilter","UDP",1),("ConnectionRouteFilter","Напрямую",1),("ConnectionRuleFilter","api-rule",1)})
             {
                 Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());Filter(test.Item1,test.Item2);Check(RowCount()==test.Item3,"Independent column filter: "+test.Item1);
@@ -128,6 +134,7 @@ static class Program
             var connections=((IEnumerable<DemoConnection>)Call(window,"CoreConnections")!).ToArray();
             Call(window,"SelectConnection",connections[0],true);Call(window,"SelectConnection",connections[1],true);Call(window,"RefreshConnections");
             Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 2","Ctrl selection adds multiple independent connection IDs");
+            Check(((UIElement)window.FindName("ConnectionBatchToolbar")).Visibility==Visibility.Visible,"Batch actions appear only after selection");
             ((CheckBox)window.FindName("GlassChoice")).IsChecked=false;window.UpdateLayout();
             var connectionImage=new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);connectionImage.Render(window);var connectionPng=new System.Windows.Media.Imaging.PngBitmapEncoder();connectionPng.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(connectionImage));using(var imageStream=File.Create(Path.Combine(folder,"connections.png")))connectionPng.Save(imageStream);Console.WriteLine("Connection screenshot: "+Path.Combine(folder,"connections.png"));
             connectionFixture.Reverse();Call(window,"RefreshConnections");Filter("ConnectionTypeFilter","UDP");

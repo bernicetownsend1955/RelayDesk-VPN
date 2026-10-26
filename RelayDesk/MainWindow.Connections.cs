@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Input;
+using System.Windows.Data;
 
 namespace RelayDesk;
 public partial class MainWindow
@@ -33,7 +34,7 @@ public partial class MainWindow
         foreach(var connection in rows)
         {
             var winner=RuleMatching.Winner(state.Rules,connection);
-            var layout=new Grid();foreach(double width in new[]{150d,235,90,160})layout.ColumnDefinitions.Add(new(){Width=new GridLength(width)});layout.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});
+            var layout=new Grid();foreach(double width in new[]{150d,235,70,140})layout.ColumnDefinitions.Add(new(){Width=new GridLength(width)});layout.ColumnDefinitions.Add(new(){Width=new GridLength(1,GridUnitType.Star)});
             void Cell(int col,string text,Brush? brush=null)
             {var label=new TextBlock{Text=text,Foreground=brush??(Brush)FindResource("Ink"),Margin=new Thickness(10,12,10,12),FontSize=13,VerticalAlignment=VerticalAlignment.Center,TextTrimming=TextTrimming.CharacterEllipsis,TextWrapping=TextWrapping.NoWrap,ToolTip=text};Grid.SetColumn(label,col);layout.Children.Add(label);}
             Cell(0,ConnectionBatch.Cell(connection,0));
@@ -50,6 +51,7 @@ public partial class MainWindow
         if(rows.Count==0)ConnectionRows.Children.Add(new TextBlock{Text="По фильтру ничего не найдено.",Foreground=(Brush)FindResource("Muted"),Margin=new Thickness(12)});
         ConnectionSummary.Text=$"Показано: {rows.Count} из {all.Count}. "+backend.ModernConnectionsStatus;
         UpdateConnectionSelection();
+        UpdateConnectionFilters();
     }
     void SelectConnection(DemoConnection connection,bool toggle)
     {
@@ -64,14 +66,38 @@ public partial class MainWindow
         }
         UpdateConnectionSelection();
     }
-    void UpdateConnectionSelection(){ConnectionSelectionCount.Text="Выбрано: "+selectedConnections.Count;ConfigureSelectedConnections.IsEnabled=selectedConnections.Count>0;}
+    void UpdateConnectionSelection(){ConnectionSelectionCount.Text="Выбрано: "+selectedConnections.Count;ConfigureSelectedConnections.IsEnabled=selectedConnections.Count>0;ConnectionBatchToolbar.Visibility=selectedConnections.Count>0?Visibility.Visible:Visibility.Collapsed;}
+    static readonly string[] ConnectionLabels=["Приложение","Назначение","Тип","Маршрут","Выбрано правилом"];
+    TextBox[] ConnectionFilters()=>[ConnectionAppFilter,ConnectionDestinationFilter,ConnectionTypeFilter,ConnectionRouteFilter,ConnectionRuleFilter];
+    void InitializeConnectionFilters()
+    {
+        foreach(var header in ConnectionColumnHeaders.Children.OfType<Button>())
+        {
+            int column=int.Parse(header.Tag.ToString()!);var field=ConnectionFilters()[column];
+            header.ToolTip="Щелчок — сортировать. Правая кнопка — фильтр столбца.";
+            var menu=new ContextMenu{PlacementTarget=header};var panel=new StackPanel{Width=260,Margin=new Thickness(6)};
+            panel.Children.Add(new TextBlock{Text="Фильтр: "+ConnectionLabels[column],Margin=new Thickness(0,0,0,8)});
+            var input=new TextBox{ToolTip=column==2?"Например: TCP или UDP":"Введи часть текста"};
+            System.Windows.Automation.AutomationProperties.SetName(input,System.Windows.Automation.AutomationProperties.GetName(field));
+            input.SetBinding(TextBox.TextProperty,new Binding(nameof(TextBox.Text)){Source=field,Mode=BindingMode.TwoWay,UpdateSourceTrigger=UpdateSourceTrigger.PropertyChanged});
+            panel.Children.Add(input);menu.Items.Add(new MenuItem{Header=panel,StaysOpenOnClick=true});
+            var clear=new MenuItem{Header="Очистить фильтр"};clear.Click+=(_,_)=>field.Clear();menu.Items.Add(clear);
+            input.KeyDown+=(_,e)=>{if(e.Key==Key.Enter){menu.IsOpen=false;e.Handled=true;}};
+            menu.Opened+=(_,_)=>Dispatcher.BeginInvoke(()=>{input.Focus();input.SelectAll();});header.ContextMenu=menu;
+        }
+    }
+    void UpdateConnectionFilters()
+    {
+        var filters=ConnectionFilters();var active=Enumerable.Range(0,5).Where(i=>!string.IsNullOrWhiteSpace(filters[i].Text)).ToArray();
+        ConnectionFilterToolbar.Visibility=active.Length>0?Visibility.Visible:Visibility.Collapsed;
+        ConnectionActiveFilters.Text="Фильтры: "+string.Join("; ",active.Select(i=>ConnectionLabels[i]+" — "+filters[i].Text.Trim()));
+    }
     void ClearConnectionSelection(object sender,RoutedEventArgs e){selectedConnections.Clear();RefreshConnections();}
     void ClearConnectionFilters(object sender,RoutedEventArgs e){foreach(var box in new[]{ConnectionSearch,ConnectionAppFilter,ConnectionDestinationFilter,ConnectionTypeFilter,ConnectionRouteFilter,ConnectionRuleFilter})box.Clear();RefreshConnections();}
     void SortConnections(object sender,RoutedEventArgs e)
     {
         int column=int.Parse(((Button)sender).Tag.ToString()!);connectionDescending=connectionSort==column&&!connectionDescending;connectionSort=column;
-        string[] labels=["Приложение","Назначение","Тип","Маршрут","Выбрано правилом"];
-        foreach(var header in ConnectionColumnHeaders.Children.OfType<Button>()){int index=int.Parse(header.Tag.ToString()!);header.Content=labels[index]+(index==column?(connectionDescending?" ↓":" ↑"):"");}
+        foreach(var header in ConnectionColumnHeaders.Children.OfType<Button>()){int index=int.Parse(header.Tag.ToString()!);header.Content=ConnectionLabels[index]+(index==column?(connectionDescending?" ↓":" ↑"):"");}
         RefreshConnections();
     }
     void ConfigureConnections(object sender,RoutedEventArgs e)

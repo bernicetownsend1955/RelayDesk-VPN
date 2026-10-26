@@ -32,11 +32,13 @@ try {
  foreach($name in @('≡    Профили','↔    Соединения','⊞    Приложения','⚙    Настройки','⌂    Главная')){
   Invoke $name;'PASS main navigation: '+$name
   if($name -eq '↔    Соединения'){
-   foreach($field in @('Фильтр: приложение','Фильтр: назначение','Фильтр: тип','Фильтр: маршрут','Фильтр: правило')){$null=Find $field}
    foreach($column in @('Приложение','Назначение','Тип','Маршрут','Выбрано правилом')){Invoke $column}
-   Invoke 'Сбросить фильтры';Invoke 'Снять выделение'
-   if((Find 'Настроить выбранные…').Current.IsEnabled){throw 'Empty selection unexpectedly enables batch action'}
-   'PASS column filters, sorting and batch selection controls'
+   foreach($label in @('Фильтр: приложение','Фильтр: назначение','Фильтр: тип','Фильтр: маршрут','Фильтр: правило','Настроить выбранные…')){
+    $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,$label)
+    $extra=$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$condition)
+    if($extra -and !$extra.Current.IsOffscreen){throw ('Unexpected always-visible table control '+$label)}
+   }
+   'PASS compact column headers sort without permanent filter fields or batch toolbar'
   }
  }
  Invoke 'Настройки';Invoke 'Автозапуск Windows…'
