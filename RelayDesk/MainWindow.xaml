@@ -84,11 +84,19 @@
       </StackPanel>
       <StackPanel x:Name="ConnectionsPage" Visibility="Collapsed">
        <TextBlock Text="Соединения" Style="{StaticResource Heading}"/>
-       <TextBlock Text="Данные работающего ядра. Нажми строку, чтобы сохранить правило для приложения, домена или IP." Style="{StaticResource MutedText}" Margin="0,0,0,18"/>
+       <TextBlock Text="Нажми строку для настройки. Ctrl + щелчок — добавить или убрать строку из выделения. Заголовки столбцов меняют сортировку." Style="{StaticResource MutedText}" Margin="0,0,0,18"/>
        <TextBlock Text="Поиск по приложению, домену или IP" Style="{StaticResource MutedText}" Margin="0,0,0,6"/>
        <TextBox x:Name="ConnectionSearch" AutomationProperties.Name="Поиск соединений" TextChanged="ConnectionFilterChanged" Margin="0,0,0,16"/>
        <Border Style="{StaticResource Panel}" Padding="12"><StackPanel>
-        <Grid Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="235"/><ColumnDefinition Width="70"/><ColumnDefinition Width="140"/><ColumnDefinition/></Grid.ColumnDefinitions><TextBlock Text="Приложение" Style="{StaticResource MutedText}" Margin="10,0"/><TextBlock Grid.Column="1" Text="Назначение" Style="{StaticResource MutedText}" Margin="10,0"/><TextBlock Grid.Column="2" Text="Тип" Style="{StaticResource MutedText}" Margin="10,0"/><TextBlock Grid.Column="3" Text="Маршрут" Style="{StaticResource MutedText}" Margin="10,0"/><TextBlock Grid.Column="4" Text="Выбрано правилом" Style="{StaticResource MutedText}" Margin="10,0"/></Grid>
+        <Grid x:Name="ConnectionColumnHeaders" Margin="0,0,0,8"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="235"/><ColumnDefinition Width="90"/><ColumnDefinition Width="160"/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+         <Button Content="Приложение" Tag="0" Click="SortConnections" Padding="6" HorizontalContentAlignment="Left"/><Button Grid.Column="1" Content="Назначение" Tag="1" Click="SortConnections" Padding="6" HorizontalContentAlignment="Left"/><Button Grid.Column="2" Content="Тип" Tag="2" Click="SortConnections" Padding="6" HorizontalContentAlignment="Left"/><Button Grid.Column="3" Content="Маршрут" Tag="3" Click="SortConnections" Padding="6" HorizontalContentAlignment="Left"/><Button Grid.Column="4" Content="Выбрано правилом" Tag="4" Click="SortConnections" Padding="6" HorizontalContentAlignment="Left"/>
+         <TextBox x:Name="ConnectionAppFilter" Grid.Row="1" AutomationProperties.Name="Фильтр: приложение" ToolTip="Фильтр приложения" TextChanged="ConnectionFilterChanged" Padding="6" Margin="0,6,4,0"/>
+         <TextBox x:Name="ConnectionDestinationFilter" Grid.Row="1" Grid.Column="1" AutomationProperties.Name="Фильтр: назначение" ToolTip="Фильтр назначения" TextChanged="ConnectionFilterChanged" Padding="6" Margin="0,6,4,0"/>
+         <TextBox x:Name="ConnectionTypeFilter" Grid.Row="1" Grid.Column="2" AutomationProperties.Name="Фильтр: тип" ToolTip="TCP или UDP" TextChanged="ConnectionFilterChanged" Padding="6" Margin="0,6,4,0"/>
+         <TextBox x:Name="ConnectionRouteFilter" Grid.Row="1" Grid.Column="3" AutomationProperties.Name="Фильтр: маршрут" ToolTip="Фильтр маршрута" TextChanged="ConnectionFilterChanged" Padding="6" Margin="0,6,4,0"/>
+         <TextBox x:Name="ConnectionRuleFilter" Grid.Row="1" Grid.Column="4" AutomationProperties.Name="Фильтр: правило" ToolTip="Фильтр сработавшего правила" TextChanged="ConnectionFilterChanged" Padding="6" Margin="0,6,0,0"/>
+        </Grid>
+        <WrapPanel Margin="0,4,0,12"><TextBlock x:Name="ConnectionSelectionCount" Text="Выбрано: 0" VerticalAlignment="Center" Margin="0,0,12,0"/><Button x:Name="ConfigureSelectedConnections" Content="Настроить выбранные…" Click="ConfigureConnections" IsEnabled="False" Margin="0,0,8,0"/><Button Content="Снять выделение" Click="ClearConnectionSelection" Margin="0,0,8,0"/><Button Content="Сбросить фильтры" Click="ClearConnectionFilters"/></WrapPanel>
         <StackPanel x:Name="ConnectionRows"/>
        </StackPanel></Border>
        <Button Content="Применить правила (переподключение)" Click="ApplyRules" HorizontalAlignment="Left" Margin="0,14,0,0"/><TextBlock x:Name="ConnectionSummary" Style="{StaticResource MutedText}" Margin="0,14,0,0"/>

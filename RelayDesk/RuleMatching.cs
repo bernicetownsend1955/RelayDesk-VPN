@@ -3,7 +3,7 @@ using System.Net;
 
 namespace RelayDesk;
 
-public record DemoConnection(string App,string ProcessName,string ProcessPath,string Host,string Ip,string Protocol,int Port,bool CanApplication=true,bool CanEdit=true,string ActualRoute="",string ActualRule="",string Destination="");
+public record DemoConnection(string App,string ProcessName,string ProcessPath,string Host,string Ip,string Protocol,int Port,bool CanApplication=true,bool CanEdit=true,string ActualRoute="",string ActualRule="",string Destination="",string Id="");
 public record RuleOverlap(RouteRule Existing,string Reason,bool Exact,bool SameRoute);
 public static class RuleMatching
 {

@@ -29,7 +29,16 @@ try {
   $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke();Start-Sleep -Milliseconds 200
  }
  foreach($name in @('VPN','zapret','Проверить TCP','Проверить HTTPS','Журнал')){$null=Find $name;'PASS modern control: '+$name}
- foreach($name in @('≡    Профили','↔    Соединения','⊞    Приложения','⚙    Настройки','⌂    Главная')){Invoke $name;'PASS main navigation: '+$name}
+ foreach($name in @('≡    Профили','↔    Соединения','⊞    Приложения','⚙    Настройки','⌂    Главная')){
+  Invoke $name;'PASS main navigation: '+$name
+  if($name -eq '↔    Соединения'){
+   foreach($field in @('Фильтр: приложение','Фильтр: назначение','Фильтр: тип','Фильтр: маршрут','Фильтр: правило')){$null=Find $field}
+   foreach($column in @('Приложение','Назначение','Тип','Маршрут','Выбрано правилом')){Invoke $column}
+   Invoke 'Сбросить фильтры';Invoke 'Снять выделение'
+   if((Find 'Настроить выбранные…').Current.IsEnabled){throw 'Empty selection unexpectedly enables batch action'}
+   'PASS column filters, sorting and batch selection controls'
+  }
+ }
  Invoke 'Настройки';Invoke 'Автозапуск Windows…'
  foreach($name in @('Запускать RelayDesk при входе в Windows','Автоматически включать VPN','Автоматически включать zapret','Профиль VPN для автозапуска')){$null=Find $name}
  $enabled=(Find 'Запускать RelayDesk при входе в Windows').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)

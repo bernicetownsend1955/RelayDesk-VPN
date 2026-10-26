@@ -101,6 +101,50 @@ static class Program
             ((TabControl)backend.FindName("Tabs")).SelectedIndex=2;Pump();Check(((ComboBox)window.FindName("AdvancedSection")).SelectedIndex==1,"Internal parameter navigation synchronizes modern section selector");
             ((TabControl)backend.FindName("Tabs")).SelectedIndex=0;Pump();Check(((UIElement)window.FindName("AdvancedHost")).Visibility==Visibility.Collapsed&&((UIElement)window.FindName("HomePage")).Visibility==Visibility.Visible,"Legacy return-to-dashboard action resolves to modern home page");
             Call(window,"BackToPanel",window,new RoutedEventArgs());
+            ((DispatcherTimer)typeof(Workspace).GetField("connectionTimer",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(backend)!).Stop();
+            File.WriteAllText(Path.Combine(folder,"Discord.exe"),"routing test fixture - never executed");File.WriteAllText(Path.Combine(folder,"Browser.exe"),"routing test fixture - never executed");
+            var connectionFixture=new List<ConnectionRow>
+            {
+                new("voice","Discord.exe","voice.example.org:19326","UDP","Через VPN / прокси","proxy","voice-rule","",""){ProcessPath=Path.Combine(folder,"Discord.exe"),Host="voice.example.org",Address="192.0.2.1"},
+                new("api","Discord.exe","api.example.org:443","TCP","Напрямую","direct","api-rule","",""){ProcessPath=Path.Combine(folder,"Discord.exe"),Host="api.example.org",Address="192.0.2.2"},
+                new("browser","Browser.exe","www.example.net:443","TCP","Через VPN / прокси","proxy","final","",""){ProcessPath=Path.Combine(folder,"Browser.exe"),Host="www.example.net",Address="192.0.2.3"}
+            };
+            typeof(Workspace).GetField("connectionRows",BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(backend,connectionFixture);
+            Call(window,"SelectPage",4);Pump();
+            int RowCount()=>((Panel)window.FindName("ConnectionRows")).Children.OfType<Button>().Count();
+            void Filter(string name,string value){((TextBox)window.FindName(name)).Text=value;}
+            Check(RowCount()==3,"Connection table renders all actual fixture rows");
+            foreach(var test in new[]{("ConnectionAppFilter","Discord",2),("ConnectionDestinationFilter","voice",1),("ConnectionTypeFilter","UDP",1),("ConnectionRouteFilter","Напрямую",1),("ConnectionRuleFilter","api-rule",1)})
+            {
+                Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());Filter(test.Item1,test.Item2);Check(RowCount()==test.Item3,"Independent column filter: "+test.Item1);
+            }
+            Filter("ConnectionAppFilter","Browser");Check(RowCount()==0,"Column filters combine using AND");
+            Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());Filter("ConnectionSearch","voice-rule");Check(RowCount()==1,"Global search also matches reported rule");
+            Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());
+            var sort=((Grid)window.FindName("ConnectionColumnHeaders")).Children.OfType<Button>().First(b=>b.Tag.ToString()=="0");
+            sort.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Call(window,"RefreshConnections");
+            string FirstRow()=>((Panel)window.FindName("ConnectionRows")).Children.OfType<Button>().First().Tag.ToString()!;
+            Check(FirstRow()=="browser","Ascending column sorting survives refresh");sort.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Call(window,"RefreshConnections");Check(FirstRow()!="browser","Descending column sorting survives refresh");
+            var connections=((IEnumerable<DemoConnection>)Call(window,"CoreConnections")!).ToArray();
+            Call(window,"SelectConnection",connections[0],true);Call(window,"SelectConnection",connections[1],true);Call(window,"RefreshConnections");
+            Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 2","Ctrl selection adds multiple independent connection IDs");
+            ((CheckBox)window.FindName("GlassChoice")).IsChecked=false;window.UpdateLayout();
+            var connectionImage=new System.Windows.Media.Imaging.RenderTargetBitmap((int)window.ActualWidth,(int)window.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);connectionImage.Render(window);var connectionPng=new System.Windows.Media.Imaging.PngBitmapEncoder();connectionPng.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(connectionImage));using(var imageStream=File.Create(Path.Combine(folder,"connections.png")))connectionPng.Save(imageStream);Console.WriteLine("Connection screenshot: "+Path.Combine(folder,"connections.png"));
+            connectionFixture.Reverse();Call(window,"RefreshConnections");Filter("ConnectionTypeFilter","UDP");
+            Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 2","Selection survives reordering, refresh and filtering");
+            Dialog(window,"Настроить выбранные…",typeof(ConnectionBatchWindow));
+            Call(window,"SelectConnection",connections[0],true);Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 1","Ctrl selection toggles only clicked row");
+            Call(window,"ClearConnectionSelection",window,new RoutedEventArgs());Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 0","Clear selection resets selected IDs");
+            var batch=ConnectionBatch.Create(connections,1,"Напрямую",[]);Check(batch.Count==2,"Batch deduplicates repeated application targets");
+            var domainBatch=ConnectionBatch.Create(connections,0,"Напрямую",[]);Check(domainBatch.Count==3,"Batch creates individual domain rules");
+            var replacement=ConnectionBatch.Create([connections[1]],0,"Через VPN",[domainBatch[1]]);Check(replacement[0].Id==domainBatch[1].Id,"Batch updates matching rule without changing identity");
+            try{ConnectionBatch.Create([connections[0] with {CanApplication=false}],1,"Напрямую",[]);throw new Exception("Unsupported application batch accepted");}catch(InvalidOperationException){}
+            Check(true,"Unsupported application target rejects complete batch");
+            var beforeBatch=File.ReadAllText(Path.Combine(folder,"profiles.json"));Call(window,"SaveConnectionBatch",batch);Check(File.ReadAllText(Path.Combine(folder,"profiles.json"))==beforeBatch,"Invalid EXE batch leaves all saved profile data unchanged");
+            Call(window,"SaveConnectionBatch",domainBatch);var afterBatch=new Store(folder).Profiles.Single();Check(domainBatch.All(r=>afterBatch.QuickRoutes.Any(q=>q.Value==r.Value&&q.Direct)),"Domain batch saves all rules in a single profile update");
+            Check(afterBatch.Config==profile.Config,"Batch routing preserves original full JSON");
+            Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());Call(window,"SelectConnection",connections[0],true);Call(window,"RefreshConnections");
+            connectionFixture.RemoveAll(r=>r.Id==connections[0].Id);Call(window,"RefreshConnections");Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 0","Expired connection removes only its stale selection");
             Call(window,"EnterQuietMode");Pump();Check(((UIElement)window.FindName("Shell")).Opacity<.1,"Production quiet mode fades actual HUD");
             var click=new MouseButtonEventArgs(Mouse.PrimaryDevice,Environment.TickCount,MouseButton.Left){RoutedEvent=Mouse.PreviewMouseDownEvent};window.RaiseEvent(click);Check(click.Handled&&((UIElement)window.FindName("QuietOverlay")).Visibility==Visibility.Collapsed,"First click restores production HUD without clicking through");
             Pump();Call(window,"SelectPage",0);Pump();
