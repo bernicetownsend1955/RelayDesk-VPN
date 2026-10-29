@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.25.5</Version>
-    <InformationalVersion>0.25.5-journal-zapret-settings</InformationalVersion>
+    <Version>0.25.6</Version>
+    <InformationalVersion>0.25.6-journal-zapret-settings</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>
