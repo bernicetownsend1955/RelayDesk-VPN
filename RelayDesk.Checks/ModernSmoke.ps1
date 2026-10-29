@@ -41,7 +41,10 @@ try {
    'PASS compact column headers sort without permanent filter fields or batch toolbar'
   }
  }
- Invoke 'Настройки';Invoke 'Автозапуск Windows…'
+ Invoke 'Настройки'
+ foreach($name in @('Стратегия zapret','Обновить список стратегий','Применить стратегию','Настроить трафик выбранной подписки')){$null=Find $name}
+ 'PASS published settings expose readable Russian captions'
+ Invoke 'Автозапуск Windows…'
  foreach($name in @('Запускать RelayDesk при входе в Windows','Автоматически включать VPN','Автоматически включать zapret','Профиль VPN для автозапуска')){$null=Find $name}
  $enabled=(Find 'Запускать RelayDesk при входе в Windows').GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
  if($enabled.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off){throw 'Startup unexpectedly enabled'}

@@ -3,6 +3,7 @@ $ErrorActionPreference = 'Stop'
 $project = Split-Path $PSScriptRoot -Parent
 [xml]$definition = Get-Content -LiteralPath (Join-Path $project 'RelayDesk.csproj')
 $version = $definition.Project.PropertyGroup.Version
+& (Join-Path $PSScriptRoot 'Test-TextEncoding.ps1') -ProjectDir $project
 $publish = Join-Path $project ('release\' + $version)
 if (!(Test-Path -LiteralPath $Compiler)) { throw 'Install Inno Setup 6 and pass -Compiler with the path to ISCC.exe.' }
 if ($Repository -and $Repository -notmatch '^[A-Za-z0-9][A-Za-z0-9-]{0,38}/[A-Za-z0-9_.-]{1,100}$') { throw 'Repository must be owner/repository.' }

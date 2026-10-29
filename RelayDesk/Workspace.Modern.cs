@@ -67,8 +67,8 @@ public partial class Workspace
     public void ModernEnableSubscriptionTraffic()
     {
         var profile=RequireProfile();
-        if(!profile.Managed||profile.SubscriptionId.Length==0)throw new InvalidOperationException("?????? ??????? ?? ????????.");
-        if(ModernBusy||HasChanges()||ReferenceEquals(session.ActiveProfile,profile))throw new InvalidOperationException("??????? ????????? ??????? ? ??????? ??? ?????????. ?????? ??????????? ????? ???????? ??????????.");
+        if(!profile.Managed||profile.SubscriptionId.Length==0)throw new InvalidOperationException("Выбери профиль из подписки.");
+        if(ModernBusy||HasChanges()||ReferenceEquals(session.ActiveProfile,profile))throw new InvalidOperationException("Отключи выбранный профиль и сохрани его изменения. Другое подключение можно оставить включённым.");
         var copy=JsonSerializer.Deserialize<Profile>(JsonSerializer.Serialize(profile))!;
         copy.SystemProxy=true;
         if(copy.Dns=="1.1.1.1")copy.Dns="system";
@@ -90,7 +90,7 @@ public partial class Workspace
     }
     public void ModernSaveZapretStrategy(Strategy strategy)
     {
-        if(ModernBusy||session.ZapretRunning)throw new InvalidOperationException("???????? zapret ????? ?????? ?????????. VPN ????? ???????? ??????????.");
+        if(ModernBusy||session.ZapretRunning)throw new InvalidOperationException("Останови zapret перед сменой стратегии. VPN можно оставить включённым.");
         _=DiscordScope.Arguments(new Preferences{ZapretDiscordOnly=true},strategy.Arguments);
         store.Settings.ZapretArgs=strategy.Arguments;ZapretArgs.Text=strategy.Arguments;
         store.Settings.AutoZapret=false;AutoZapret.IsChecked=false;store.Save();

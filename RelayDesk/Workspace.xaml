@@ -257,7 +257,7 @@
              <ColumnDefinition />
             </Grid.ColumnDefinitions>
             <StackPanel>
-             <TextBlock Text="DNS / IP-адрес" Style="{StaticResource Label}" />
+             <TextBlock Text="DNS: system или IP-адрес" Style="{StaticResource Label}" />
              <TextBox x:Name="Dns" />
             </StackPanel>
             <StackPanel Grid.Column="2">

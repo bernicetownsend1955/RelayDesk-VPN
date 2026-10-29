@@ -96,6 +96,11 @@ static class Program
             var strategySaved=new Store(folder).Settings;
             Check(strategySaved.ZapretArgs=="--dpi-desync=multisplit"&&!strategySaved.AutoZapret,"Manual strategy selector persists arguments and disables automatic replacement");
             Check(!backend.ModernSession.ProxyRunning&&!backend.ModernSession.ZapretRunning,"Choosing strategy never starts or interrupts cores");
+            Call(window,"SelectPage",3);Pump();
+            var settingsTexts=Visual<TextBlock>(window).Where(t=>t.IsVisible).Select(t=>t.Text).ToArray();
+            Check(settingsTexts.Contains("Стратегия zapret")&&!settingsTexts.Any(t=>t.Contains("???")||t.Contains('\uFFFD')),"Rendered settings keep Russian labels without encoding loss");
+            Check(Visual<Button>(window).Any(b=>b.Content?.ToString()=="Применить стратегию"),"Strategy action has readable Russian caption");
+            Check(((TextBlock)window.FindName("ZapretStrategyMessage")).Text.StartsWith("Сохранена: QA strategy"),"Saved strategy status keeps Russian text");
             Call(window,"OpenStartup",window,new RoutedEventArgs());Pump();
             Check(((UIElement)window.FindName("StartupPanel")).Visibility==Visibility.Visible&&((UIElement)window.FindName("AdvancedHost")).Visibility==Visibility.Collapsed&&((UIElement)window.FindName("StandardContent")).Visibility==Visibility.Visible,"Windows startup opens inside modern settings without legacy navigation");
             ((CheckBox)window.FindName("StartupEnabled")).IsChecked=false;((CheckBox)window.FindName("StartupVpn")).IsChecked=true;((CheckBox)window.FindName("StartupZapret")).IsChecked=true;

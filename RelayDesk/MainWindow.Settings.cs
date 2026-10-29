@@ -7,7 +7,7 @@ public partial class MainWindow
 {
     void EnableSubscriptionTraffic(object sender,RoutedEventArgs e)
     {
-        try{backend.ModernEnableSubscriptionTraffic();RefreshFromBackend();Toast("????????? ?????? ???????? ??? ?????????? ???????. ?????? VPN, ????? ??????? HTTPS.");}
+        try{backend.ModernEnableSubscriptionTraffic();RefreshFromBackend();Toast("Системный прокси настроен для выбранного сервера. Включи VPN, затем проверь HTTPS.");}
         catch(Exception ex){Toast(ex.Message);}
     }
     void LoadZapretStrategies()
@@ -16,7 +16,7 @@ public partial class MainWindow
         {
             var p=backend.ModernStore.Settings;
             var strategies=FlowsealStrategies.Resolve(p.ZapretExe,p.StrategyList);
-            if(!string.IsNullOrWhiteSpace(p.ZapretArgs)&&!strategies.Any(s=>s.Arguments==p.ZapretArgs))strategies.Insert(0,new Strategy("??????? ??????????? ?????????",p.ZapretArgs));
+            if(!string.IsNullOrWhiteSpace(p.ZapretArgs)&&!strategies.Any(s=>s.Arguments==p.ZapretArgs))strategies.Insert(0,new Strategy("Текущая сохранённая стратегия",p.ZapretArgs));
             ZapretStrategyChoice.ItemsSource=strategies;
             ZapretStrategyChoice.SelectedItem=strategies.FirstOrDefault(s=>s.Arguments==p.ZapretArgs)??strategies.FirstOrDefault();
         }
@@ -27,9 +27,9 @@ public partial class MainWindow
     {
         try
         {
-            if(ZapretStrategyChoice.SelectedItem is not Strategy strategy)throw new InvalidOperationException("?????? ????????? ?? ??????.");
+            if(ZapretStrategyChoice.SelectedItem is not Strategy strategy)throw new InvalidOperationException("Выбери стратегию из списка.");
             backend.ModernSaveZapretStrategy(strategy);RefreshFromBackend();
-            ZapretStrategyMessage.Text="?????????: "+strategy.Name+". ?????????? ????????. ????????? ????? ???????????? ??? ????????? zapret.";
+            ZapretStrategyMessage.Text="Сохранена: "+strategy.Name+". Автоподбор отключён. Стратегия будет использована при включении zapret.";
         }
         catch(Exception ex){ZapretStrategyMessage.Text=ex.Message;}
     }
