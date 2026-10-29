@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         InitializeQuietMode();App.Motion=state.Motion&&SystemParameters.ClientAreaAnimation;
         initialized=true;RefreshFromBackend();SelectPage(0);
         InitializeConnectionFilters();
+        LoadZapretStrategies();
         refresh.Tick+=(_,_)=>RefreshFromBackend();
         Closed+=(_,_)=>{leaving=true;refresh.Stop();lifetime.Cancel();};
     }
@@ -203,7 +204,7 @@ public partial class MainWindow : Window
     }
     static void FadeIn(FrameworkElement element,double offset=0,int duration=180){if(App.Motion)element.BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(duration)));}
     void ToggleAdvanced(object sender,RoutedEventArgs e){AdvancedPanel.Visibility=AdvancedPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;}
-    void ToggleJournal(object sender,RoutedEventArgs e){JournalPanel.Visibility=JournalPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;Journal.Text=backend.ModernLog;}
+    void ToggleJournal(object sender,RoutedEventArgs e){JournalPanel.Visibility=JournalPanel.Visibility==Visibility.Visible?Visibility.Collapsed:Visibility.Visible;Journal.Text=backend.ModernLog;if(JournalPanel.Visibility==Visibility.Visible)HomeFrame.Height=double.NaN;else HomeFrame.SetBinding(HeightProperty,new System.Windows.Data.Binding("ActualHeight"){Source=Scroller});}
     void OpenSettings(object sender,RoutedEventArgs e)=>SelectPage(3);
     void ShowAdvanced(int tab)
     {

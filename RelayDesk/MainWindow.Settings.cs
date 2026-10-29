@@ -5,6 +5,34 @@ namespace RelayDesk;
 
 public partial class MainWindow
 {
+    void EnableSubscriptionTraffic(object sender,RoutedEventArgs e)
+    {
+        try{backend.ModernEnableSubscriptionTraffic();RefreshFromBackend();Toast("????????? ?????? ???????? ??? ?????????? ???????. ?????? VPN, ????? ??????? HTTPS.");}
+        catch(Exception ex){Toast(ex.Message);}
+    }
+    void LoadZapretStrategies()
+    {
+        try
+        {
+            var p=backend.ModernStore.Settings;
+            var strategies=FlowsealStrategies.Resolve(p.ZapretExe,p.StrategyList);
+            if(!string.IsNullOrWhiteSpace(p.ZapretArgs)&&!strategies.Any(s=>s.Arguments==p.ZapretArgs))strategies.Insert(0,new Strategy("??????? ??????????? ?????????",p.ZapretArgs));
+            ZapretStrategyChoice.ItemsSource=strategies;
+            ZapretStrategyChoice.SelectedItem=strategies.FirstOrDefault(s=>s.Arguments==p.ZapretArgs)??strategies.FirstOrDefault();
+        }
+        catch(Exception ex){ZapretStrategyMessage.Text=ex.Message;}
+    }
+    void ReloadZapretStrategies(object sender,RoutedEventArgs e)=>LoadZapretStrategies();
+    void SaveZapretStrategy(object sender,RoutedEventArgs e)
+    {
+        try
+        {
+            if(ZapretStrategyChoice.SelectedItem is not Strategy strategy)throw new InvalidOperationException("?????? ????????? ?? ??????.");
+            backend.ModernSaveZapretStrategy(strategy);RefreshFromBackend();
+            ZapretStrategyMessage.Text="?????????: "+strategy.Name+". ?????????? ????????. ????????? ????? ???????????? ??? ????????? zapret.";
+        }
+        catch(Exception ex){ZapretStrategyMessage.Text=ex.Message;}
+    }
     static readonly int[] AdvancedTabs=[1,2,3,4,5,6,8];
     bool syncingSection;
     void SyncModernSection(int tab)

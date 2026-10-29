@@ -64,6 +64,18 @@ public partial class Workspace
         loading=true;SubscriptionGroupFilter.SelectedIndex=0;ProfileSearch.Text="";RefreshGroupedProfiles();ProfileList.SelectedItem=profile;selected=profile;loading=false;DisplayProfile();
         store.Settings.LastConnectedProfileId=profile.Id;store.Save();return true;
     }
+    public void ModernEnableSubscriptionTraffic()
+    {
+        var profile=RequireProfile();
+        if(!profile.Managed||profile.SubscriptionId.Length==0)throw new InvalidOperationException("?????? ??????? ?? ????????.");
+        if(ModernBusy||HasChanges()||ReferenceEquals(session.ActiveProfile,profile))throw new InvalidOperationException("??????? ????????? ??????? ? ??????? ??? ?????????. ?????? ??????????? ????? ???????? ??????????.");
+        var copy=JsonSerializer.Deserialize<Profile>(JsonSerializer.Serialize(profile))!;
+        copy.SystemProxy=true;
+        if(copy.Dns=="1.1.1.1")copy.Dns="system";
+        _=RuntimePolicy.Config(copy,store.Settings,session.ZapretRunning?ConnectionMode.Combined:ConnectionMode.VpnOnly);
+        store.Profiles[store.Profiles.IndexOf(profile)]=copy;selected=copy;
+        loading=true;RefreshProfiles();ProfileList.SelectedItem=copy;loading=false;DisplayProfile();store.Save();
+    }
     public void ModernToggleVpn()=>ToggleVpnClick(this,new RoutedEventArgs());
     public void ModernToggleZapret()=>ToggleZapretClick(this,new RoutedEventArgs());
     public void ModernTcpCheck()=>TcpClick(this,new RoutedEventArgs());
@@ -75,6 +87,13 @@ public partial class Workspace
     {
         if(ModernBusy)throw new InvalidOperationException("Дождись завершения операции.");
         AutoServer.IsChecked=server;AutoZapret.IsChecked=zapret;store.Settings.AutoServer=server;store.Settings.AutoZapret=zapret;store.Save();
+    }
+    public void ModernSaveZapretStrategy(Strategy strategy)
+    {
+        if(ModernBusy||session.ZapretRunning)throw new InvalidOperationException("???????? zapret ????? ?????? ?????????. VPN ????? ???????? ??????????.");
+        _=DiscordScope.Arguments(new Preferences{ZapretDiscordOnly=true},strategy.Arguments);
+        store.Settings.ZapretArgs=strategy.Arguments;ZapretArgs.Text=strategy.Arguments;
+        store.Settings.AutoZapret=false;AutoZapret.IsChecked=false;store.Save();
     }
     public void ModernScope(bool discordOnly)
     {

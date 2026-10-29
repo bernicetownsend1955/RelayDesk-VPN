@@ -150,7 +150,7 @@ public static class ImportParser
     }
     static ImportResult Managed(JsonObject outbound, string name, string host, int port, string protocol)
     {
-        var p = new Profile { Name = string.IsNullOrWhiteSpace(name) ? protocol + " / " + host : name, Managed = true, Host = host, Port = port, Protocol = protocol, Config = new JsonObject { ["log"] = new JsonObject { ["level"] = "info" }, ["outbounds"] = new JsonArray(outbound) }.ToJsonString(JsonTools.Options) };
+        var p = new Profile { Name = string.IsNullOrWhiteSpace(name) ? protocol + " / " + host : name, Managed = true, SystemProxy = true, Dns = "system", Host = host, Port = port, Protocol = protocol, Config = new JsonObject { ["log"] = new JsonObject { ["level"] = "info" }, ["outbounds"] = new JsonArray(outbound) }.ToJsonString(JsonTools.Options) };
         var tls = outbound["tls"] as JsonObject;
         var protection = tls == null ? "без TLS" : tls["reality"] != null ? "Reality" : "TLS";
         var transport = JsonTools.Text(outbound["transport"]?["type"]); if (transport.Length == 0) transport = "TCP";

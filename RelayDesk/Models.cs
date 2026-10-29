@@ -122,8 +122,9 @@ public static class JsonTools
         var inbounds = new JsonArray(new JsonObject { ["type"] = "mixed", ["tag"] = "relay-mixed", ["listen"] = "127.0.0.1", ["listen_port"] = Port(p.LocalPort.ToString()) });
         if (p.Tun || settings?.DiscordSplit == true) inbounds.Add(new JsonObject { ["type"] = "tun", ["tag"] = "relay-tun", ["address"] = new JsonArray("172.19.0.1/30"), ["auto_route"] = true, ["strict_route"] = true, ["stack"] = "mixed" });
         root["inbounds"] = inbounds;
-        if (!System.Net.IPAddress.TryParse(p.Dns, out _)) throw new FormatException("В поле DNS укажи IP-адрес резолвера.");
-        root["dns"] = new JsonObject { ["servers"] = new JsonArray(new JsonObject { ["type"] = "udp", ["tag"] = "resolver", ["server"] = p.Dns }), ["final"] = "resolver" };
+        if (p.Dns != "system" && !System.Net.IPAddress.TryParse(p.Dns, out _)) throw new FormatException("В поле DNS укажи IP-адрес резолвера.");
+        var resolver = p.Dns == "system" ? new JsonObject { ["type"] = "local", ["tag"] = "resolver" } : new JsonObject { ["type"] = "udp", ["tag"] = "resolver", ["server"] = p.Dns };
+        root["dns"] = new JsonObject { ["servers"] = new JsonArray(resolver), ["final"] = "resolver" };
         root["route"] = new JsonObject { ["auto_detect_interface"] = true, ["default_domain_resolver"] = "resolver", ["final"] = "proxy", ["rules"] = new JsonArray(new JsonObject { ["port"] = 53, ["action"] = "hijack-dns" }) };
         if (settings?.DiscordSplit == true)
         {
