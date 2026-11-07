@@ -38,6 +38,8 @@ public class Preferences
     public int ModernUiVersion { get; set; }
     public List<QuickRoute>? SharedQuickRoutes { get; set; }
     public ConnectionSettings? Connection {get;set;}
+    public string RoutingPreset {get;set;}="rules";
+    public string FallbackRoute {get;set;}="source";
     public string LastConnectedProfileId { get; set; } = "";
     public List<SubscriptionSource> Subscriptions { get; set; } = new();
     public List<string> SubscriptionGroups { get; set; } = new();

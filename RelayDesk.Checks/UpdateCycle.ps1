@@ -1,10 +1,11 @@
-param([Parameter(Mandatory=$true)][string]$SourceDirectory,[Parameter(Mandatory=$true)][string]$Setup,[string]$BaselineDirectory='')
+﻿param([Parameter(Mandatory=$true)][string]$SourceDirectory,[Parameter(Mandatory=$true)][string]$Setup,[string]$BaselineDirectory='', [switch]$CheckPresets)
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName UIAutomationClient,UIAutomationTypes
 if(!$BaselineDirectory){$BaselineDirectory=$SourceDirectory}
 $root=Join-Path $env:TEMP ('RelayDesk-update-cycle-'+[guid]::NewGuid().ToString('N'))
 $data=Join-Path $root 'data';$installed=Join-Path $root 'installed'
 New-Item -ItemType Directory -Path $data,$installed -Force | Out-Null
+'QA root: '+$root
 $production=Join-Path $env:LOCALAPPDATA 'RelayDesk'
 $hashes=@{}
 foreach($name in @('profiles.json','settings.json')){if(Test-Path -LiteralPath (Join-Path $production $name)){$hashes[$name]=(Get-FileHash -LiteralPath (Join-Path $production $name)).Hash}}
@@ -41,6 +42,37 @@ try {
  $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
  Wait-For {Listening} 'Loopback core failed to start'
  'PASS isolated VPN core started without TUN or system proxy'
+ if($CheckPresets){
+  foreach($presetLabel in @('Всё напрямую','По правилам')){
+   $previousCore=@(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object Name -eq 'sing-box.exe' | Select-Object -ExpandProperty ProcessId)
+   $presetName=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,$presetLabel)
+   $presetButton=$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.AndCondition($presetName,$invoke)))
+   if(!$presetButton){throw 'Preset action missing'}
+   Wait-For {$presetButton.Current.IsEnabled} 'Preset controls remained busy before selection'
+   $presetButton.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+   Start-Sleep -Milliseconds 600
+   Write-Host ('Preset QA: app='+$first.Id+'; port='+$port+'; before='+($previousCore -join ',')+'; after='+(@(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object Name -eq 'sing-box.exe' | Select-Object -ExpandProperty ProcessId) -join ',')+'; listening='+(Listening))
+   Wait-For {$now=@(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object Name -eq 'sing-box.exe' | Select-Object -ExpandProperty ProcessId);(Listening) -and (@($now | Where-Object {$previousCore -notcontains $_}).Count -gt 0)} 'Preset did not reconnect owned core'
+   Wait-For {$presetButton.Current.IsEnabled} 'Preset controls remained busy after reconnect'
+  }
+  'PASS presets reconnect active loopback core and returning to rules retains the connection'
+  $appsName=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,'⊞    Приложения')
+  $apps=$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.AndCondition($appsName,$invoke)))
+  $apps.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke();Start-Sleep -Milliseconds 400
+  $fallbackName=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,'Маршрут: Остальные подключения')
+  $fallback=$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$fallbackName)
+  $fallback.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand();Start-Sleep -Milliseconds 200
+  $directName=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,'Напрямую')
+  $direct=$fallback.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$directName)
+  $direct.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+  Wait-For {(Get-Content -LiteralPath (Join-Path $data 'settings.json') -Raw | ConvertFrom-Json).FallbackRoute -eq 'direct'} 'Fallback choice did not persist'
+  $previousCore=@(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object Name -eq 'sing-box.exe' | Select-Object -ExpandProperty ProcessId)
+  $applyName=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,'Применить правила')
+  $apply=$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,(New-Object System.Windows.Automation.AndCondition($applyName,$invoke)))
+  $apply.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+  Wait-For {$now=@(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object Name -eq 'sing-box.exe' | Select-Object -ExpandProperty ProcessId);(Listening) -and (@($now | Where-Object {$previousCore -notcontains $_}).Count -gt 0)} 'Applying fallback did not reconnect owned core'
+  'PASS editing fallback through modern selector and applying reconnects active loopback core'
+ }
  [IO.File]::WriteAllText((Join-Path $data 'pending-app-update.json'),'{"fixture":"pending update must not start during manual installation"}')
  $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOLAUNCH=1',('/DIR="'+$installed+'"'),('/QAPID='+$first.Id),('/QADATA="'+$data+'"'),('/LOG="'+(Join-Path $root 'install.log')+'"'))
  $setupProcess=Start-Process -FilePath (Resolve-Path -LiteralPath $Setup).Path -ArgumentList $args -PassThru

@@ -17,6 +17,7 @@ public static class RuntimePolicy
             copy.DiscordSplit = mode == ConnectionMode.Combined;
             copy.ZapretDiscordOnly = mode == ConnectionMode.Combined;
         }
+        if(source.RoutingPreset!="rules")copy.DiscordSplit=false;
         return copy;
     }
     public static string Config(Profile p, Preferences settings, ConnectionMode mode)
@@ -27,7 +28,14 @@ public static class RuntimePolicy
         if(LegacySubscriptionDns(p)){if(ReferenceEquals(runtimeProfile,p))runtimeProfile=SharedRouting.Copy(p);runtimeProfile.Dns="system";}
         var config=JsonTools.Build(runtimeProfile,effective);
         if(SharedRouting.NeedsTun(p,settings))config=ApplicationRoutes.PrepareTun(config);
-        return QuickRouting.Apply(config,p.Core,SharedRouting.ForProfile(p,settings),mode == ConnectionMode.Combined);
+        return settings.RoutingPreset=="rules"?RoutingFallback.Apply(QuickRouting.Apply(config,p.Core,SharedRouting.ForProfile(p,settings),mode == ConnectionMode.Combined),p.Core,settings.FallbackRoute,mode==ConnectionMode.Combined):RoutingPresets.Apply(config,p.Core,settings.RoutingPreset);
+    }
+    public static IReadOnlyList<QuickRoute> ZapretRoutes(Profile? profile,Preferences settings,ConnectionMode mode)
+    {
+        if(settings.RoutingPreset!="rules")return [];
+        var routes=SharedRouting.Rules(profile,settings).ToList();
+        if(settings.FallbackRoute=="zapret"&&mode==ConnectionMode.Combined){routes.Add(new("ip_cidr","0.0.0.0/0","@zapret",Zapret:true));routes.Add(new("ip_cidr","::/0","@zapret",Zapret:true));}
+        return routes;
     }
     public static string[] ZapretArguments(Preferences settings, ConnectionMode mode, string? strategy = null)
     {

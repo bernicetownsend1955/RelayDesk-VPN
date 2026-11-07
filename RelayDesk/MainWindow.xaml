@@ -40,8 +40,8 @@
        <Grid Margin="0,0,0,22"><StackPanel><TextBlock Text="Подключение" Style="{StaticResource Heading}"/><TextBlock Text="VPN и zapret управляются отдельно" FontSize="17" Foreground="#C4C7CE"/></StackPanel><Button HorizontalAlignment="Right" VerticalAlignment="Center" Content="Настройки" Click="OpenSettings"/></Grid>
        <Grid Margin="0,0,0,18"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="16"/><ColumnDefinition/></Grid.ColumnDefinitions>
         <Border Style="{StaticResource Panel}"><StackPanel>
-         <Grid Height="205"><StackPanel><TextBlock Text="VPN" FontSize="40" FontWeight="SemiBold"/><TextBlock x:Name="VpnStatus" Text="Выключен" Foreground="#9098A6" FontSize="17" Margin="0,6,0,0"/></StackPanel>
-          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150"><Button x:Name="VpnPower" Style="{StaticResource Power}" AutomationProperties.Name="VPN" Width="98" Height="98" Padding="0" Click="ToggleVpn"><Grid><Ellipse x:Name="VpnRing" Width="90" Height="90" Stroke="#B6C2D4" StrokeThickness="1.5"/><Path x:Name="VpnGlyph" Data="M12,2 L12,11 M5.5,5.5 A9,9 0 1 0 18.5,5.5" Width="38" Height="42" Stretch="Uniform" Stroke="#E1E6EF" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid></Button><Button x:Name="VpnActionButton" Margin="0,6,0,0" Padding="12,5" Click="ToggleVpn"><TextBlock x:Name="VpnAction" Text="Включить" FontSize="14" Foreground="#C4C7CE"/></Button></StackPanel>
+         <Grid Height="145"><StackPanel><TextBlock Text="VPN" FontSize="34" FontWeight="SemiBold"/><TextBlock x:Name="VpnStatus" Text="Выключен" Foreground="#9DA3AF" FontSize="15" Margin="0,6,0,0"/></StackPanel>
+          <Button x:Name="VpnPower" AutomationProperties.Name="VPN" Height="54" VerticalAlignment="Bottom" Click="ToggleVpn"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Viewbox Width="20" Height="20" Margin="0,0,12,0"><Canvas Width="24" Height="24"><Path x:Name="VpnGlyph" Data="M18.36,6.64 A9,9 0 1 1 5.64,6.64 M12,2 L12,12" Stroke="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox><TextBlock x:Name="VpnAction" Text="Включить VPN" FontSize="16" FontWeight="SemiBold" Foreground="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" VerticalAlignment="Center"/></StackPanel></Button>
          </Grid>
          <Border Height="1" Background="#30FFFFFF" Margin="0,10,0,14"/>
          <TextBlock Text="Сервер" Style="{StaticResource MutedText}" Margin="0,0,0,8"/>
@@ -50,8 +50,8 @@
          <TextBlock x:Name="Latency" Text="TCP ещё не проверен" Foreground="#C9D1DE" Margin="0,20,0,0"/>
         </StackPanel></Border>
         <Border Grid.Column="2" Style="{StaticResource Panel}"><StackPanel>
-         <Grid Height="205"><StackPanel><TextBlock Text="zapret" FontSize="40" FontWeight="SemiBold"/><TextBlock x:Name="ZapretStatus" Text="Выключен" Foreground="#9098A6" FontSize="17" Margin="0,6,0,0"/></StackPanel>
-          <StackPanel HorizontalAlignment="Center" VerticalAlignment="Bottom" Width="150"><Button x:Name="ZapretPower" Style="{StaticResource Power}" AutomationProperties.Name="zapret" Width="98" Height="98" Padding="0" Click="ToggleZapret"><Grid><Ellipse x:Name="ZapretRing" Width="90" Height="90" Stroke="#B6C2D4" StrokeThickness="1.5"/><Path x:Name="ZapretGlyph" Data="M12,2 L12,11 M5.5,5.5 A9,9 0 1 0 18.5,5.5" Width="38" Height="42" Stretch="Uniform" Stroke="#E1E6EF" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid></Button><Button x:Name="ZapretActionButton" Margin="0,6,0,0" Padding="12,5" Click="ToggleZapret"><TextBlock x:Name="ZapretAction" Text="Включить" FontSize="14" Foreground="#C4C7CE"/></Button></StackPanel>
+         <Grid Height="145"><StackPanel><TextBlock Text="zapret" FontSize="34" FontWeight="SemiBold"/><TextBlock x:Name="ZapretStatus" Text="Выключен" Foreground="#9DA3AF" FontSize="15" Margin="0,6,0,0"/></StackPanel>
+          <Button x:Name="ZapretPower" AutomationProperties.Name="zapret" Height="54" VerticalAlignment="Bottom" Click="ToggleZapret"><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"><Viewbox Width="20" Height="20" Margin="0,0,12,0"><Canvas Width="24" Height="24"><Path x:Name="ZapretGlyph" Data="M18.36,6.64 A9,9 0 1 1 5.64,6.64 M12,2 L12,12" Stroke="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Canvas></Viewbox><TextBlock x:Name="ZapretAction" Text="Включить zapret" FontSize="16" FontWeight="SemiBold" Foreground="{Binding Foreground,RelativeSource={RelativeSource AncestorType=Button}}" VerticalAlignment="Center"/></StackPanel></Button>
          </Grid>
          <Border Height="1" Background="#30FFFFFF" Margin="0,10,0,14"/>
          <TextBlock Text="Область применения" Style="{StaticResource MutedText}" Margin="0,0,0,8"/>
@@ -61,7 +61,9 @@
         </StackPanel></Border>
        </Grid>
        <Border Style="{StaticResource Panel}"><StackPanel>
-        <TextBlock Text="Как идут подключения" FontSize="27" FontWeight="SemiBold"/><TextBlock Text="Выбери маршрут для приложения" FontSize="16" Foreground="#A2A8B4" Margin="0,5,0,18"/>
+        <TextBlock Text="Маршрутизация" FontSize="25" FontWeight="SemiBold"/>
+        <WrapPanel x:Name="PresetButtons" Margin="0,14,0,8"><Button Content="По правилам" Tag="rules" Click="ChangePreset" Margin="0,0,8,8" ToolTip="Вернуть сохранённые правила. Работающий VPN переподключится."/><Button Content="Всё напрямую" Tag="direct" Click="ChangePreset" Margin="0,0,8,8" ToolTip="Обойти VPN для всех подключений. Работающий VPN переподключится."/><Button Content="Всё через VPN" Tag="proxy" Click="ChangePreset" Margin="0,0,0,8" ToolTip="Направить подключения через выбранный VPN. Работающий VPN переподключится."/></WrapPanel>
+        <TextBlock x:Name="PresetStatus" Style="{StaticResource MutedText}" Margin="0,0,0,16"/>
         <StackPanel x:Name="HomeRoutes"/>
         <TextBlock x:Name="RouteHint" Text="Для Discord оставлен VPN: прямое подключение может зависать." Style="{StaticResource MutedText}" Margin="0,12,0,0"/>
        </StackPanel></Border>
@@ -86,7 +88,7 @@
       </StackPanel>
       <StackPanel x:Name="ConnectionsPage" Visibility="Collapsed">
        <TextBlock Text="Соединения" Style="{StaticResource Heading}"/>
-       <TextBlock Text="Ctrl + щелчок — выделить несколько строк. Заголовок столбца: щелчок — сортировка, правая кнопка — фильтр." Style="{StaticResource MutedText}" Margin="0,0,0,18"/>
+       <TextBlock Text="Ctrl + щелчок — выделить строки, Ctrl+A — все по фильтру. Заголовок: щелчок — сортировка, правая кнопка — фильтр." Style="{StaticResource MutedText}" Margin="0,0,0,18"/>
        <TextBlock Text="Поиск по приложению, домену или IP" Style="{StaticResource MutedText}" Margin="0,0,0,6"/>
        <TextBox x:Name="ConnectionSearch" AutomationProperties.Name="Поиск соединений" TextChanged="ConnectionFilterChanged" Margin="0,0,0,16"/>
        <Border Style="{StaticResource Panel}" Padding="12"><StackPanel>

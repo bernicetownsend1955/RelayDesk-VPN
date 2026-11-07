@@ -23,7 +23,7 @@ public partial class MainWindow
         refreshingRoutes=false;
         DiscoveryNotice.Text="Общие правила для всех VPN и групп. Применение переподключит работающий VPN.";
         RulesCount.Text="Правил: "+state.Rules.Count(r=>r.Kind!="default")+". Проверяются сверху вниз; первое совпадение определяет маршрут.";
-        RouteHint.Text="Общие правила применяются при подключении любого сервера. Для правил приложений sing-box использует TUN.";
+        RouteHint.Text="Первое совпадение определяет маршрут. Для остальных подключений выбери маршрут ниже. «Через zapret» действует при включённом zapret; иначе используется исходный профиль.";
         RefreshConnections();RefreshTrayStatus();
     }
     Grid RuleRow(RouteRule rule,bool compact)
@@ -37,11 +37,24 @@ public partial class MainWindow
         label.Children.Add(new TextBlock{Text=rule.Name,FontSize=compact?16:15});
         if(!compact)label.Children.Add(new TextBlock{Text=RouteRules.Label(rule.Kind)+" · "+(rule.Value.Length==0?"EXE ещё не найден":rule.Value),FontSize=11,Foreground=(Brush)FindResource("Muted"),TextTrimming=TextTrimming.CharacterEllipsis,TextWrapping=TextWrapping.NoWrap,Margin=new Thickness(0,4,0,0)});
         Grid.SetColumn(label,1);grid.Children.Add(label);
-        var choice=new ComboBox{ItemsSource=RouteRules.Routes,SelectedItem=rule.Route,Margin=new Thickness(0,6,6,6),VerticalAlignment=VerticalAlignment.Center,FontSize=14};
+        var choice=new ComboBox{ItemsSource=rule.Kind=="default"?RoutingFallback.Labels:RouteRules.Routes,SelectedItem=rule.Route,Margin=new Thickness(0,6,6,6),VerticalAlignment=VerticalAlignment.Center,FontSize=14};
         string accessible=rule.QuickKey=="discord"?"Discord":rule.Name;
         System.Windows.Automation.AutomationProperties.SetName(choice,"Маршрут: "+accessible);
-        choice.SelectionChanged+=(_,_)=>{if(refreshingRoutes)return;rule.Route=choice.SelectedItem?.ToString()??"Через VPN";Dispatcher.BeginInvoke(()=>{if(PersistRules())Toast("Правило сохранено. Применится при подключении или по кнопке «Применить правила».");});};
-        if(rule.Kind=="default"){choice.ItemsSource=new[]{"Исходный профиль"};choice.SelectedIndex=0;choice.IsEnabled=false;choice.ToolTip="Маршрут задаётся исходным JSON/YAML профиля";}
+        choice.SelectionChanged+=(_,_)=>
+        {
+            if(refreshingRoutes)return;
+            var selected=choice.SelectedItem?.ToString()??"Через VPN";
+            Dispatcher.BeginInvoke(()=>
+            {
+                if(rule.Kind=="default")
+                {
+                    try{backend.ModernSaveFallback(RoutingFallback.Value(selected));foreach(var p in backend.ModernStore.Profiles)pendingRules.Add(p.Id);LoadProfileRules();Toast("Маршрут для остальных подключений сохранён. Нажми «Применить правила» или переподключи VPN.");}
+                    catch(Exception ex){LoadProfileRules();Toast(ProgramJournal.Clean(ex.Message));}
+                }
+                else{rule.Route=selected;if(PersistRules())Toast("Правило сохранено. Применится при подключении или по кнопке «Применить правила».");}
+            });
+        };
+        if(rule.Kind=="default")choice.ToolTip="Общий маршрут, если ни одно правило не подошло. Пресеты на главной временно перекрывают этот выбор. При выключенном zapret его маршрут возвращается к исходному профилю.";
         Grid.SetColumn(choice,2);grid.Children.Add(choice);
         if(!compact)
         {

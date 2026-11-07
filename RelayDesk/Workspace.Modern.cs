@@ -5,6 +5,37 @@ using System.Windows;
 namespace RelayDesk;
 public partial class Workspace
 {
+    public void ModernSaveFallback(string fallback)
+    {
+        if(!RoutingFallback.Valid(fallback))throw new InvalidOperationException("Неизвестный маршрут по умолчанию.");
+        if(ModernBusy||HasChanges())throw new InvalidOperationException("Сохрани изменения профиля и дождись завершения операции.");
+        var previous=store.Settings.FallbackRoute;store.Settings.FallbackRoute=fallback;
+        try
+        {
+            if(selected!=null)
+            {
+                _=RuntimePolicy.Config(selected,store.Settings,session.ZapretRunning?ConnectionMode.Combined:ConnectionMode.VpnOnly);
+                if(fallback=="zapret")_=ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(store.Settings,ConnectionMode.Combined),RuntimePolicy.ZapretRoutes(selected,store.Settings,ConnectionMode.Combined),store.Settings.ZapretExe,store.Settings.VoiceUdpDesync);
+            }
+            store.Save();
+        }
+        catch{store.Settings.FallbackRoute=previous;throw;}
+    }
+    public async Task ModernPreset(string preset)
+    {
+        if(!RoutingPresets.Valid(preset))throw new InvalidOperationException("Неизвестный пресет.");
+        if(ModernBusy||HasChanges())throw new InvalidOperationException("Сохрани изменения профиля и дождись завершения операции.");
+        var previous=store.Settings.RoutingPreset;if(previous==preset)return;
+        var profile=session.ProxyRunning?store.Profiles.Single(p=>p.Id==session.ActiveProfile!.Id):selected;
+        store.Settings.RoutingPreset=preset;
+        try
+        {
+            if(profile!=null)_=RuntimePolicy.Config(profile,store.Settings,session.ZapretRunning?ConnectionMode.Combined:ConnectionMode.VpnOnly);
+            store.Save();
+            if(session.ProxyRunning&&profile!=null)await session.Reconfigure(profile);
+        }
+        catch{store.Settings.RoutingPreset=previous;store.Save();throw;}
+    }
     public event Action<int>? ModernSectionChanged;
     public void ModernSaveStartup(bool enabled,bool vpn,bool zapret,Profile? profile)
     {

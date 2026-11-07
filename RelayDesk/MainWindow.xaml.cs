@@ -72,11 +72,10 @@ public partial class MainWindow : Window
         if(leaving)return;
         var store=backend.ModernStore;var session=backend.ModernSession;
         vpn=session.ProxyRunning;zapret=session.ZapretRunning;vpnBusy=zapretBusy=backend.ModernBusy;
-        VpnPower.IsEnabled=VpnActionButton.IsEnabled=!vpnBusy;ZapretPower.IsEnabled=ZapretActionButton.IsEnabled=!zapretBusy;
-        VpnAction.Text=vpn?"Выключить":"Включить";ZapretAction.Text=zapret?"Выключить":"Включить";
-        VpnStatus.Text=vpnBusy?"Выполняется операция…":vpn?"Ядро "+session.ActiveProfile?.Core+" запущено":"Выключен";
+        UpdatePowerControl(VpnPower,VpnAction,VpnGlyph,vpn,vpnBusy,"VPN");UpdatePowerControl(ZapretPower,ZapretAction,ZapretGlyph,zapret,zapretBusy,"zapret");
+        VpnStatus.Text=vpnBusy?"Выполняется операция…":vpn?store.Settings.RoutingPreset=="direct"?"Трафик напрямую · "+session.ActiveProfile?.Core:"Ядро "+session.ActiveProfile?.Core+" запущено":"Выключен";
         ZapretStatus.Text=zapretBusy?"Выполняется операция…":zapret?"winws запущен":"Выключен";
-        VpnRing.Stroke=new SolidColorBrush(vpn?Color.FromRgb(220,230,244):Color.FromRgb(125,135,151));ZapretRing.Stroke=new SolidColorBrush(zapret?Color.FromRgb(220,230,244):Color.FromRgb(125,135,151));
+        RefreshPresetButtons();
         HttpsStatus.Text="HTTPS: "+backend.ModernHttps;Latency.Text=backend.ModernTcp;
         Strategy.Text=string.IsNullOrWhiteSpace(store.Settings.ZapretArgs)?"Стратегия не выбрана":store.Settings.AutoZapret?"Автоподбор включён":"Стратегия из настроек";
         var fingerprint=string.Join('|',store.Profiles.Select(p=>p.Id+":"+p.Name+":"+p.SubscriptionGroup));
@@ -87,7 +86,7 @@ public partial class MainWindow : Window
             loadingUi=true;ServerChoice.ItemsSource=new[]{"Автоматически"}.Concat(state.Servers.Select(s=>s.Name)).ToArray();RefreshGroups();loadingUi=false;RefreshProfiles();
         }
         var selected=backend.ModernProfile;string id=selected?.Id??"";
-        string rules=selected==null?"":id+"|"+System.Text.Json.JsonSerializer.Serialize(SharedRouting.Rules(selected,store.Settings));
+        string rules=RulesFingerprint();
         if(!rulesDialogOpen&&rules!=ruleFingerprint){selectedId=id;LoadProfileRules();}
         loadingUi=true;
         state.AutoServer=store.Settings.AutoServer;state.AutoStrategy=store.Settings.AutoZapret;
@@ -117,11 +116,12 @@ public partial class MainWindow : Window
                 string id=q.Id.Length>0?q.Id:Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(q.Kind+"|"+q.Value+"|"+index++)))[..24];
                 state.Rules.Add(new(){Id=id,Kind=q.Kind,Value=q.Value,Name=q.Name.Length>0?q.Name:q.Kind=="process_path"?Path.GetFileName(q.Value):q.Value,Route=q.Zapret?"Через zapret":q.Direct?"Напрямую":"Через VPN",OutboundTag=q.Outbound});
             }
-            ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(SharedRouting.Rules(profile,backend.ModernStore.Settings));
+            ruleFingerprint=RulesFingerprint();
         }
         else ruleFingerprint="";
-        state.Rules.Add(new(){Id="source-default",Kind="default",Name="Исходный маршрут профиля",Route="Исходный профиль"});RefreshRoutes();
+        state.Rules.Add(new(){Id="source-default",Kind="default",Name="Остальные подключения",Route=RoutingFallback.Label(backend.ModernStore.Settings.FallbackRoute)});RefreshRoutes();
     }
+    string RulesFingerprint()=>backend.ModernProfile is Profile p?p.Id+"|"+backend.ModernStore.Settings.FallbackRoute+"|"+System.Text.Json.JsonSerializer.Serialize(SharedRouting.Rules(p,backend.ModernStore.Settings)):"";
     bool PersistRules()
     {
         try
@@ -129,7 +129,7 @@ public partial class MainWindow : Window
             var profile=backend.ModernProfile??throw new InvalidOperationException("Выбери профиль.");
             string proxy=ProxyTag(profile);
             var routes=state.Rules.Where(r=>r.Kind!="default").Select(r=>new QuickRoute(r.Kind,r.Value,r.Route=="Через zapret"?"@zapret":r.Route=="Напрямую"?"@direct":r.OutboundTag.Length>0&&!r.OutboundTag.StartsWith('@')?r.OutboundTag:proxy,r.Route=="Напрямую",r.Route=="Через zapret",r.Name,r.Id)).ToArray();
-            backend.ModernSaveRoutes(routes);ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(backend.ModernProfile!.QuickRoutes);foreach(var p in backend.ModernStore.Profiles)pendingRules.Add(p.Id);RefreshRoutes();return true;
+            backend.ModernSaveRoutes(routes);ruleFingerprint=RulesFingerprint();foreach(var p in backend.ModernStore.Profiles)pendingRules.Add(p.Id);RefreshRoutes();return true;
         }
         catch(Exception ex){LoadProfileRules();Toast(ProgramJournal.Clean(ex.Message));return false;}
     }

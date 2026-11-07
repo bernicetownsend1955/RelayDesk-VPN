@@ -75,7 +75,8 @@ static class Program
             int beforeDelete=backend.ModernProfile!.QuickRoutes.Count;Click(window,"Удалить");Check(backend.ModernProfile.QuickRoutes.Count==beforeDelete-1,"Delete rule button persists deletion");Click(window,"Отменить удаление");Check(backend.ModernProfile.QuickRoutes.Count==beforeDelete,"Undo rule button restores persisted rule");
             Click(window,"Применить правила");Check(((TextBlock)window.FindName("Notice")).Text.Contains("не запущен"),"Apply rules on inactive profile reports the actual state");
             Call(window,"SelectPage",0);Pump();Click(window,"Журнал");Check(((UIElement)window.FindName("JournalPanel")).Visibility==Visibility.Visible,"Journal button opens actual log");Click(window,"Журнал");Check(((UIElement)window.FindName("JournalPanel")).Visibility==Visibility.Collapsed,"Journal button closes log");
-            foreach(string name in new[]{"VpnPower","VpnActionButton","ZapretPower","ZapretActionButton"})
+            Check(window.FindName("VpnActionButton")==null&&window.FindName("ZapretActionButton")==null,"Dashboard exposes only one power action per component");
+            foreach(string name in new[]{"VpnPower","ZapretPower"})
             {
                 ((Button)window.FindName(name)).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Pump(300);
                 Check(!backend.ModernSession.ProxyRunning&&!backend.ModernSession.ZapretRunning&&backend.ModernMessage.Length>0,name+" validates missing engine without starting network processes");
@@ -98,7 +99,7 @@ static class Program
             Check(!backend.ModernSession.ProxyRunning&&!backend.ModernSession.ZapretRunning,"Choosing strategy never starts or interrupts cores");
             Call(window,"SelectPage",3);Pump();
             var settingsTexts=Visual<TextBlock>(window).Where(t=>t.IsVisible).Select(t=>t.Text).ToArray();
-            Check(settingsTexts.Contains("Стратегия zapret")&&!settingsTexts.Any(t=>t.Contains("???")||t.Contains('\uFFFD')),"Rendered settings keep Russian labels without encoding loss");
+            Check(settingsTexts.Contains("Стратегия zapret")&&!settingsTexts.Any(t=>t.Contains("???")||t.Contains('\uFFFD')),"Rendered settings keep Russian labels without encoding loss: "+string.Join(" | ",settingsTexts.Where(t=>t.Contains("???")||t.Contains('\uFFFD')||t.Contains("zapret"))));
             Check(Visual<Button>(window).Any(b=>b.Content?.ToString()=="Применить стратегию"),"Strategy action has readable Russian caption");
             Check(((TextBlock)window.FindName("ZapretStrategyMessage")).Text.StartsWith("Сохранена: QA strategy"),"Saved strategy status keeps Russian text");
             Call(window,"OpenStartup",window,new RoutedEventArgs());Pump();
@@ -146,6 +147,15 @@ static class Program
             Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());Filter("ConnectionSearch","voice-rule");Check(RowCount()==1,"Global search also matches reported rule");
             Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());
             var sort=((Grid)window.FindName("ConnectionColumnHeaders")).Children.OfType<Button>().First(b=>b.Tag.ToString()=="0");
+            Call(window,"SelectAllConnections");Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 3","Select all marks every active visible connection by stable ID");
+            Filter("ConnectionAppFilter","Discord");Call(window,"SelectAllConnections");Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 2","Select all respects current column filters");
+            Call(window,"ClearConnectionSelection",window,new RoutedEventArgs());Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());
+            sort.Focus();ApplicationCommands.SelectAll.Execute(null,sort);Pump();
+            Check(((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 3","Routed SelectAll command reaches table when a row or header has focus");
+            Call(window,"ClearConnectionSelection",window,new RoutedEventArgs());
+            var searchInput=(TextBox)window.FindName("ConnectionSearch");searchInput.Text="Discord";searchInput.Focus();searchInput.CaretIndex=2;ApplicationCommands.SelectAll.Execute(null,searchInput);Pump();
+            Check(searchInput.SelectedText=="Discord"&&((TextBlock)window.FindName("ConnectionSelectionCount")).Text=="Выбрано: 0","SelectAll in search selects text without selecting connections");
+            Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());
             sort.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Call(window,"RefreshConnections");
             string FirstRow()=>((Panel)window.FindName("ConnectionRows")).Children.OfType<Button>().First().Tag.ToString()!;
             Check(FirstRow()=="browser","Ascending column sorting survives refresh");sort.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));Call(window,"RefreshConnections");Check(FirstRow()!="browser","Descending column sorting survives refresh");
@@ -242,6 +252,52 @@ static class Program
             Check(ConnectionTransport.Describe(legacySubscription,legacyRuntime.ToJsonString())=="TUN + системный прокси","Connection caption reports combined TUN and system proxy accurately");
             Call(window,"RefreshFromBackend");
             Check(((TextBlock)window.FindName("ServerHint")).Text.Contains("При подключении: TUN"),"Stopped dashboard labels the planned auto TUN mode without claiming active traffic");
+            Call(window,"SelectPage",0);
+            var preservedRules=System.Text.Json.JsonSerializer.Serialize(backend.ModernStore.Settings.SharedQuickRoutes);
+            var preservedProfiles=File.ReadAllText(Path.Combine(folder,"profiles.json"));
+            foreach(var preset in new[]{"direct","proxy","rules"})
+            {
+                Click(window,RoutingPresets.Label(preset));
+                Check(new Store(folder).Settings.RoutingPreset==preset&&!backend.ModernSession.ProxyRunning,"Preset selection persists without connecting an inactive VPN: "+preset);
+                var forced=JsonTools.Object(RuntimePolicy.Config(backend.ModernProfile!,backend.ModernStore.Settings,ConnectionMode.Combined));
+                if(preset!="rules")
+                {
+                    string tag=forced["route"]!["final"]!.ToString();
+                    var outbound=forced["outbounds"]!.AsArray().First(o=>o!["tag"]!.ToString()==tag)!;
+                    Check(preset=="direct"?outbound["type"]!.ToString()=="direct":outbound["type"]!.ToString() is not ("direct" or "block" or "dns"),"Forced preset resolves to the intended outbound: "+preset);
+                    Check(!forced["route"]!["rules"]!.ToJsonString().Contains("shared.example.org"),"Forced preset overrides saved exceptions without deleting them: "+preset);
+                    Check(forced["dns"]!["servers"]!.AsArray().OfType<System.Text.Json.Nodes.JsonObject>().Where(s=>s["type"]!.ToString()!="local").All(s=>s["detour"]!.ToString()==tag),"DNS follows forced transport while bootstrap stays local: "+preset);
+                }
+                else Check(forced["route"]!["rules"]!.ToJsonString().Contains("shared.example.org"),"Returning to rules restores saved routing order");
+            }
+            Check(System.Text.Json.JsonSerializer.Serialize(backend.ModernStore.Settings.SharedQuickRoutes)==preservedRules&&File.ReadAllText(Path.Combine(folder,"profiles.json"))==preservedProfiles,"Preset round trip preserves all source configurations and common rules byte-for-byte");
+            var xrayPreset="{\"outbounds\":[{\"protocol\":\"freedom\",\"tag\":\"direct\"},{\"protocol\":\"socks\",\"tag\":\"remote\"}],\"routing\":{\"rules\":[{\"type\":\"field\",\"domain\":[\"full:exception.example\"],\"outboundTag\":\"direct\"}]}}";
+            foreach(var preset in new[]{"direct","proxy"})Check(JsonTools.Object(RoutingPresets.Apply(xrayPreset,"Xray",preset))["routing"]!["rules"]![0]!["outboundTag"]!.ToString()==(preset=="direct"?"direct":"remote"),"Xray preset overrides source exceptions: "+preset);
+            try{RoutingPresets.Apply("{\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"}]}","sing-box","proxy");throw new Exception("Missing VPN outbound accepted");}catch(InvalidOperationException){}
+            Check(true,"VPN preset rejects a profile containing only direct transport");
+            Call(window,"SelectPage",2);
+            foreach(var fallback in new[]{"direct","proxy","zapret","source"})
+            {
+                var fallbackChoice=Visual<ComboBox>((DependencyObject)window.FindName("DefaultRouteHost")).Single();
+                Check(fallbackChoice.IsEnabled&&fallbackChoice.Items.Count==4,"Default route selector remains editable: "+fallback);
+                fallbackChoice.SelectedItem=RoutingFallback.Label(fallback);Pump();
+                Check(new Store(folder).Settings.FallbackRoute==fallback,"Default route persists from modern dropdown for all profiles: "+fallback);
+                foreach(var mode in new[]{ConnectionMode.VpnOnly,ConnectionMode.Combined})
+                {
+                    var effective=JsonTools.Object(RuntimePolicy.Config(backend.ModernProfile!,backend.ModernStore.Settings,mode));
+                    Check(effective["route"]!["rules"]!.ToJsonString().Contains("shared.example.org"),"Fallback keeps individual common rules: "+fallback+"/"+mode);
+                    var expected=fallback=="direct"||fallback=="zapret"&&mode==ConnectionMode.Combined?"direct":"proxy";
+                    var tag=effective["route"]!["final"]!.ToString();
+                    Check(effective["outbounds"]!.AsArray().Any(o=>JsonTools.Text(o?["tag"])==tag&&(expected=="direct"?JsonTools.Text(o?["type"])=="direct":JsonTools.Text(o?["type"])=="socks")),"Fallback selects correct effective transport: "+fallback+"/"+mode);
+                }
+            }
+            var xrayFallback=JsonTools.Object(RoutingFallback.Apply(xrayPreset,"Xray","proxy",true));
+            Check(xrayFallback["routing"]!["rules"]!.AsArray().Count==2&&xrayFallback["routing"]!["rules"]![0]!["domain"]!=null&&xrayFallback["routing"]!["rules"]![1]!["outboundTag"]!.ToString()=="remote","Xray fallback retains domain exception before final VPN catchall");
+            backend.ModernSaveFallback("zapret");
+            Check(RuntimePolicy.ZapretRoutes(backend.ModernProfile,backend.ModernStore.Settings,ConnectionMode.Combined).Count(r=>r.Zapret&&r.Kind=="ip_cidr"&&r.Value.EndsWith("/0"))==2,"Zapret fallback captures both IPv4 and IPv6 destinations");
+            backend.ModernStore.Settings.RoutingPreset="proxy";
+            Check(RuntimePolicy.ZapretRoutes(backend.ModernProfile,backend.ModernStore.Settings,ConnectionMode.Combined).Count==0&&JsonTools.Text(JsonTools.Object(RuntimePolicy.Config(backend.ModernProfile!,backend.ModernStore.Settings,ConnectionMode.Combined))["route"]?["final"])=="proxy","Forced VPN preset temporarily overrides saved zapret fallback");
+            backend.ModernStore.Settings.RoutingPreset="rules";backend.ModernSaveFallback("source");Call(window,"LoadProfileRules");
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
             Call(window,"SelectPage",3);
             var editor=(TextBox)backend.FindName("ConfigEditor");var profileName=(TextBox)backend.FindName("ProfileName");

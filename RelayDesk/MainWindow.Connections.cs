@@ -71,6 +71,7 @@ public partial class MainWindow
     TextBox[] ConnectionFilters()=>[ConnectionAppFilter,ConnectionDestinationFilter,ConnectionTypeFilter,ConnectionRouteFilter,ConnectionRuleFilter];
     void InitializeConnectionFilters()
     {
+        CommandBindings.Add(new CommandBinding(ApplicationCommands.SelectAll,SelectAllConnectionCommand,CanSelectAllConnectionCommand));
         foreach(var header in ConnectionColumnHeaders.Children.OfType<Button>())
         {
             int column=int.Parse(header.Tag.ToString()!);var field=ConnectionFilters()[column];
@@ -85,6 +86,23 @@ public partial class MainWindow
             input.KeyDown+=(_,e)=>{if(e.Key==Key.Enter){menu.IsOpen=false;e.Handled=true;}};
             menu.Opened+=(_,_)=>Dispatcher.BeginInvoke(()=>{input.Focus();input.SelectAll();});header.ContextMenu=menu;
         }
+    }
+    void CanSelectAllConnectionCommand(object sender,CanExecuteRoutedEventArgs e)
+    {
+        if(currentPage!=4||AdvancedHost.Visibility==Visibility.Visible||Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase||Keyboard.FocusedElement is PasswordBox)return;
+        e.CanExecute=true;e.Handled=true;
+    }
+    void SelectAllConnectionCommand(object sender,ExecutedRoutedEventArgs e)
+    {
+        if(currentPage!=4||AdvancedHost.Visibility==Visibility.Visible||Keyboard.FocusedElement is System.Windows.Controls.Primitives.TextBoxBase||Keyboard.FocusedElement is PasswordBox)return;
+        SelectAllConnections();e.Handled=true;
+    }
+    void SelectAllConnections()
+    {
+        var filters=ConnectionFilters().Select(f=>f.Text).ToArray();
+        selectedConnections.Clear();
+        foreach(var connection in CoreConnections().Where(c=>ConnectionBatch.Matches(c,ConnectionSearch.Text.Trim(),filters)))selectedConnections[connection.Id]=connection;
+        RefreshConnections();
     }
     void UpdateConnectionFilters()
     {

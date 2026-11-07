@@ -87,7 +87,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     {
         if (busy) throw new InvalidOperationException("Дождись завершения переключения режима.");
         var target = RuntimePolicy.Mode(profile != null, zapret);
-        if (Mode == target && ReferenceEquals(profile, ActiveProfile) && ProxyRunning == (profile != null) && ZapretRunning == zapret && Equals(activeSettings?.Connection,store.Settings.Connection)) return;
+        if (Mode == target && ReferenceEquals(profile, ActiveProfile) && ProxyRunning == (profile != null) && ZapretRunning == zapret && Equals(activeSettings?.Connection,store.Settings.Connection)&&activeSettings?.RoutingPreset==store.Settings.RoutingPreset&&activeSettings?.FallbackRoute==store.Settings.FallbackRoute) return;
         var previousProfile = ProxyRunning ? ActiveProfile : null; var previousZapret = ZapretRunning;
         var previousSettings = activeSettings ?? store.Settings;
         // Validate and write the target before touching live processes.
@@ -142,7 +142,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             }
             _ = WriteConfig(p, false, settings, mode);
         }
-        if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode), SharedRouting.Rules(p, settings), settings.ZapretExe, settings.VoiceUdpDesync); }
+        if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode), RuntimePolicy.ZapretRoutes(p,settings,mode), settings.ZapretExe, settings.VoiceUdpDesync); }
     }
     static bool HasLocalInput(Profile p) => p.Managed || p.SystemProxy || p.Core is "sing-box" or "Xray" && (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?[p.Core == "sing-box" ? "type" : "protocol"]) is "mixed" or "socks" or "http") == true;
     async Task StartMode(Profile? p, bool zapret, Preferences settings, ConnectionMode mode)
@@ -155,7 +155,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             var restored = ProxyLease.DisableUnavailableProfileProxy(endpoints);
             if (restored.Length > 0) log(restored);
         }
-        if (zapret) await StartZapretCore(settings, mode, routes: SharedRouting.Rules(p, settings));
+        if (zapret) await StartZapretCore(settings, mode, routes: RuntimePolicy.ZapretRoutes(p,settings,mode));
         if (p != null) await StartProxyCore(p, settings, mode);
         if(p?.Core=="Xray"&&settings.SharedQuickRoutes?.Any(r=>r.Kind is "process_name" or "process_path")==true)
             log("Xray: общие правила доменов и IP применены. Для общих правил EXE выбери sing-box с TUN; Xray их не обрабатывает.");
