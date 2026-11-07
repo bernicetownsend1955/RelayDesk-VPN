@@ -11,6 +11,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     public Process? Proxy { get; private set; }
     public Process? Zapret { get; private set; }
     public Profile? ActiveProfile { get; private set; }
+    public string ActiveTransport { get; private set; } = "";
     public event Action? Changed;
     public ConnectionMode Mode { get; private set; }
     public string[] ActiveZapretArguments { get; private set; } = [];
@@ -198,6 +199,7 @@ public sealed class EngineSession(Store store, Action<string> log)
         }
         else { await Task.Delay(500); if (process.HasExited) throw new InvalidOperationException($"Ядро завершилось: код {process.ExitCode}."); }
         if (p.SystemProxy) { lease.Apply(proxy); log("Системный прокси включён до отключения VPN."); }
+        ActiveTransport=ConnectionTransport.Describe(p,File.ReadAllText(runtime));
         log($"[{p.Core}] PID {process.Id}"); _ = Observe(process, false);
     }
     async Task StartZapretCore(Preferences settings, ConnectionMode mode, string? strategy = null, IEnumerable<QuickRoute>? routes = null)
@@ -217,7 +219,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             await process.WaitForExitAsync();
             if ((zapret ? Zapret : Proxy) != process) return;
             log($"{(zapret ? "zapret" : "VPN")} завершился: код {process.ExitCode}.");
-            if (zapret) { Zapret = null; ActiveZapretArguments = []; } else { Proxy = null; ActiveProfile = null; RestoreProxy(); }
+            if (zapret) { Zapret = null; ActiveZapretArguments = []; } else { Proxy = null; ActiveProfile = null; ActiveTransport=""; RestoreProxy(); }
             process.Dispose();
             while (busy) await Task.Delay(50);
             // If a transition or shutdown already replaced the sibling, it owns the final state.
@@ -231,6 +233,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     async Task StopOwned()
     {
         var proxy = Proxy; var zapret = Zapret; Proxy = null; Zapret = null; ActiveProfile = null;
+        ActiveTransport="";
         ActiveZapretArguments = [];
         RestoreProxy();
         try { if (proxy != null) await Kill(proxy); }

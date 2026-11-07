@@ -95,7 +95,8 @@ public partial class MainWindow : Window
         if(ServerChoice.SelectedItem?.ToString()!=state.Server)ServerChoice.SelectedItem=state.Server;
         loadingUi=false;
         var displayProfile=vpn?session.ActiveProfile:selected;
-        string traffic=displayProfile is {Managed:true,Tun:false,SystemProxy:false}?" · Только локальный прокси: трафик приложений не перенаправляется":displayProfile?.SystemProxy==true?" · Системный прокси":"";
+        string transport=vpn?session.ActiveTransport:displayProfile!=null?ConnectionTransport.Planned(displayProfile,store.Settings,RuntimePolicy.Mode(true,zapret)):"";
+        string traffic=transport.Length>0?" · "+(vpn?"":"При подключении: ")+transport:"";
         ServerHint.Text=(vpn?"Работает: "+session.ActiveProfile?.Name:state.AutoServer?"Автовыбор при подключении":selected?.Core??"Импортируй профиль")+traffic;
         int pid=session.ProxyRunning?session.Proxy!.Id:0;if(pid!=lastProcessId){lastProcessId=pid;if(session.ActiveProfile!=null)pendingRules.Remove(session.ActiveProfile.Id);}
         if(backend.ModernMessage.Length>0&&backend.ModernMessage!=lastMessage){lastMessage=backend.ModernMessage;Toast(ProgramJournal.Clean(lastMessage));}

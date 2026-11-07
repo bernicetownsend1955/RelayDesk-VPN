@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.26.1</Version>
-    <InformationalVersion>0.26.1-tun-address-conflict</InformationalVersion>
+    <Version>0.26.2</Version>
+    <InformationalVersion>0.26.2-connection-mode-label</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>

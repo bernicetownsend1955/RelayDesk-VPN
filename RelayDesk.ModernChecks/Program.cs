@@ -216,6 +216,13 @@ static class Program
             Check(legacyRuntime["dns"]!["servers"]![0]!["type"]!.ToString()=="local"&&legacySubscription.Dns=="1.1.1.1","Legacy subscription default DNS uses system resolver without mutating source profile");
             legacySubscription.Dns="9.9.9.9";
             Check(JsonTools.Object(RuntimePolicy.Config(legacySubscription,backend.ModernStore.Settings,ConnectionMode.VpnOnly))["dns"]!["servers"]![0]!["server"]!.ToString()=="9.9.9.9","Custom DNS survives subscription runtime correction");
+            legacySubscription.Tun=false;legacySubscription.SystemProxy=false;
+            Check(ConnectionTransport.Planned(legacySubscription,backend.ModernStore.Settings,ConnectionMode.VpnOnly).StartsWith("TUN"),"Auto TUN from shared application rules overrides stored false flags in connection caption");
+            Check(ConnectionTransport.Describe(legacySubscription,legacySubscription.Config).StartsWith("Локальный прокси"),"Actual configuration without TUN stays local despite newly saved shared settings");
+            legacySubscription.SystemProxy=true;
+            Check(ConnectionTransport.Describe(legacySubscription,legacyRuntime.ToJsonString())=="TUN + системный прокси","Connection caption reports combined TUN and system proxy accurately");
+            Call(window,"RefreshFromBackend");
+            Check(((TextBlock)window.FindName("ServerHint")).Text.Contains("При подключении: TUN"),"Stopped dashboard labels the planned auto TUN mode without claiming active traffic");
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
             Call(window,"ClosePreview",window,new RoutedEventArgs());Pump(350);Check(!app.Windows.OfType<MainWindow>().Any(),"Caption close button uses existing core shutdown lifecycle");
             var reopened=new Store(folder);Check(reopened.Profiles.Single().Config==profile.Config&&reopened.Settings.LastConnectedProfileId==profile.Id,"Settings and profile survive complete modern-window lifecycle");
