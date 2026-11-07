@@ -6,6 +6,7 @@ public enum ConnectionMode { Off, ZapretOnly, VpnOnly, Combined }
 
 public static class RuntimePolicy
 {
+    public static bool LegacySubscriptionDns(Profile profile) => profile.Managed && profile.SubscriptionId.Length>0 && profile.Dns=="1.1.1.1";
     public static ConnectionMode Mode(bool vpn, bool zapret) => (vpn, zapret) switch { (true, true) => ConnectionMode.Combined, (true, false) => ConnectionMode.VpnOnly, (false, true) => ConnectionMode.ZapretOnly, _ => ConnectionMode.Off };
     public static string Label(ConnectionMode mode) => mode switch { ConnectionMode.Combined => "VPN + zapret / раздельные правила", ConnectionMode.VpnOnly => "Только VPN / исходный профиль", ConnectionMode.ZapretOnly => "Только zapret / все приложения", _ => "Всё выключено" };
     public static Preferences Settings(Preferences source, ConnectionMode mode)
@@ -22,7 +23,9 @@ public static class RuntimePolicy
     {
         var effective = Settings(settings,mode);
         if (p.Core is not ("sing-box" or "Xray")) effective.DiscordSplit = false;
-        var config=JsonTools.Build(p,effective);
+        var runtimeProfile=p;
+        if(LegacySubscriptionDns(p)){runtimeProfile=SharedRouting.Copy(p);runtimeProfile.Dns="system";}
+        var config=JsonTools.Build(runtimeProfile,effective);
         if(SharedRouting.NeedsTun(p,settings))config=ApplicationRoutes.PrepareTun(config);
         return QuickRouting.Apply(config,p.Core,SharedRouting.ForProfile(p,settings),mode == ConnectionMode.Combined);
     }

@@ -138,7 +138,6 @@ public sealed class EngineSession(Store store, Action<string> log)
                 log($"Порт {proxy.Port} освобождён. Продолжаю подключение VPN.");
             }
             _ = WriteConfig(p, false, settings, mode);
-            if (rawTun && !ProxyRunning && NetworkInterface.GetAllNetworkInterfaces().Any(n => n.OperationalStatus == OperationalStatus.Up && n.Description.Contains("sing-tun", StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Уже работает TUN другого приложения. Отключи его перед запуском RelayDesk.");
         }
         if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode), SharedRouting.Rules(p, settings), settings.ZapretExe, settings.VoiceUdpDesync); }
     }
@@ -168,10 +167,15 @@ public sealed class EngineSession(Store store, Action<string> log)
         var proxy = JsonTools.LocalProxy(p);
         if (HasLocalInput(p) && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(x => x.Port == proxy.Port)) throw new InvalidOperationException($"Локальный порт {proxy.Port} уже занят.");
         var runtime = WriteConfig(p, false, settings, mode);
+        if(RuntimePolicy.LegacySubscriptionDns(p))log("Подписка: прежний DNS по умолчанию 1.1.1.1 заменён системным DNS в конфигурации запуска.");
         XrayConnections.Clear();
         if(p.Core=="Xray") File.WriteAllText(runtime,XrayConnectionHistory.Configure(File.ReadAllText(runtime)));
         if (p.Core == "sing-box")
         {
+            var configured=TunRuntime.Configure(File.ReadAllText(runtime));
+            File.WriteAllText(runtime,configured);
+            foreach(var tun in (JsonTools.Object(configured)["inbounds"] as System.Text.Json.Nodes.JsonArray??[]).Where(i=>JsonTools.Text(i?["type"])=="tun"))
+                log("TUN RelayDesk: "+JsonTools.Text(tun?["interface_name"])+", "+JsonTools.Text(tun?["address"]?[0]));
             var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0); listener.Start(); var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port; listener.Stop();
             File.WriteAllText(runtime, ConnectionMonitor.Configure(File.ReadAllText(runtime), port));
         }
