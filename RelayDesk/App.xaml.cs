@@ -11,9 +11,12 @@ public partial class App : Application
 {
     private Mutex? instance;
     public static bool WindowsStartupLaunch { get; private set; }
+    public static string UpdateResumeToken {get;private set;}="";
     protected override void OnStartup(StartupEventArgs e)
     {
         WindowsStartupLaunch = e.Args.Contains("--windows-startup", StringComparer.Ordinal);
+        int resumeIndex=Array.IndexOf(e.Args,"--resume-update");
+        if(resumeIndex>=0&&resumeIndex+1<e.Args.Length)UpdateResumeToken=e.Args[resumeIndex+1];
         var isolatedFolder = Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR");
         if (string.IsNullOrWhiteSpace(isolatedFolder) && !EngineSession.IsAdmin())
         {
@@ -30,7 +33,7 @@ public partial class App : Application
         var suffix = string.IsNullOrWhiteSpace(isolatedFolder) ? "" : "." + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(System.IO.Path.GetFullPath(isolatedFolder).ToUpperInvariant())))[..16];
         instance = new Mutex(true, @"Local\RelayDesk.Desktop" + suffix, out var created);
         if (!created) { if (!WindowsStartupLaunch) MessageBox.Show("RelayDesk уже открыт. Используй запущенное окно."); Shutdown(); return; }
-        if (string.IsNullOrWhiteSpace(isolatedFolder))
+        if (string.IsNullOrWhiteSpace(isolatedFolder)&&UpdateResumeToken.Length==0)
         {
             try
             {

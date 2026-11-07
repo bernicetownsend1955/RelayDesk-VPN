@@ -106,6 +106,8 @@ public static class PendingUpdates
         var helper=Path.Combine(applicationFolder,"Apply-Update.ps1");if(!File.Exists(helper))throw new FileNotFoundException("Не найден помощник обновления.");
         var start=new ProcessStartInfo("powershell.exe") { UseShellExecute=false,CreateNoWindow=true };
         foreach(var arg in new[]{"-NoProfile","-NonInteractive","-ExecutionPolicy","Bypass","-File",helper,"-ParentId",Environment.ProcessId.ToString(),"-Installer",pending.Installer,"-Sha256",pending.Release.File.Hash,"-DataFolder",folder})start.ArgumentList.Add(arg);
+        var resumeToken=UpdateRestart.PendingToken(folder);
+        if(resumeToken.Length>0){start.ArgumentList.Add("-ResumeToken");start.ArgumentList.Add(resumeToken);}
         // Install into the directory used by this copy, including portable/current copies.
         start.ArgumentList.Add("-InstallDirectory");start.ArgumentList.Add(Path.GetFullPath(applicationFolder));
         using var process=Process.Start(start)??throw new InvalidOperationException("Не удалось запустить установку обновления.");return true;

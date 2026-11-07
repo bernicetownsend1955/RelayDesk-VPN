@@ -26,7 +26,7 @@ public partial class Workspace
             try { StartupRegistration.Apply(true, Environment.ProcessPath!); }
             catch (Exception ex) { StartupStatus.Text = "Не удалось настроить задачу Windows: " + ex.Message; Write(StartupStatus.Text); }
         }
-        if (App.WindowsStartupLaunch && Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR") == null) Safe(RunWindowsStartup);
+        if (App.UpdateResumeToken.Length==0&&App.WindowsStartupLaunch && Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR") == null) Safe(RunWindowsStartup);
     }
     void SaveStartupClick(object sender, RoutedEventArgs e) => Safe(() =>
     {

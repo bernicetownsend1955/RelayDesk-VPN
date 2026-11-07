@@ -5,6 +5,16 @@ namespace RelayDesk;
 
 public partial class MainWindow
 {
+    public int UpdatePage=>currentPage;
+    public int UpdateSection=>AdvancedHost.Visibility==Visibility.Visible?AdvancedSection.SelectedIndex:-1;
+    public void RestoreUpdateView(UpdateResume state)
+    {
+        SelectPage(Math.Clamp(state.Page,0,4));
+        if(state.Section>=0&&state.Section<AdvancedTabs.Length)ShowAdvanced(AdvancedTabs[state.Section]);
+        if(state.Hidden&&backend.ModernStore.Settings.TrayEnabled)HideToTray();
+        else if(state.Minimized)WindowState=WindowState.Minimized;
+        RefreshFromBackend();
+    }
     void EnableSubscriptionTraffic(object sender,RoutedEventArgs e)
     {
         try{backend.ModernEnableSubscriptionTraffic();RefreshFromBackend();Toast("Системный прокси настроен для выбранного сервера. Включи VPN, затем проверь HTTPS.");}

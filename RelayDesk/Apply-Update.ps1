@@ -3,7 +3,8 @@
     [Parameter(Mandatory=$true)][string]$Installer,
     [Parameter(Mandatory=$true)][string]$Sha256,
     [Parameter(Mandatory=$true)][string]$DataFolder,
-    [string]$InstallDirectory = ''
+    [string]$InstallDirectory = '',
+    [string]$ResumeToken = ''
 )
 $ErrorActionPreference = 'Stop'
 $statusPath = Join-Path $DataFolder 'application-update-status.txt'
@@ -22,7 +23,8 @@ try {
     $downloadRoot = [IO.Path]::GetFullPath((Join-Path $DataFolder 'application-updates')).TrimEnd('\') + '\'
     if (!$resolvedInstaller.StartsWith($downloadRoot,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolvedInstaller) -notmatch '^RelayDesk-Setup-\d+\.\d+\.\d+-x64\.exe$') { throw 'Unexpected installer path.' }
     if ($Sha256 -notmatch '^[a-fA-F0-9]{64}$' -or (Get-FileHash -LiteralPath $resolvedInstaller -Algorithm SHA256).Hash -ne $Sha256) { throw 'Installer SHA-256 changed. Update cancelled.' }
-    $arguments = @('/SILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-')
+    $arguments = @('/SILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/NOLAUNCH=1')
+    if($ResumeToken){if($ResumeToken -notmatch '^[a-fA-F0-9]{32}$'){throw 'Invalid restart token'};$arguments+='/RESUMEUPDATE='+$ResumeToken}
     if ($InstallDirectory) {
         if ($InstallDirectory.Contains('"')) { throw 'Invalid install directory.' }
         $arguments += '/DIR="' + $InstallDirectory.TrimEnd('\') + '"'
@@ -41,7 +43,12 @@ try {
     if (Test-Path -LiteralPath $pendingPath) { Remove-Item -LiteralPath $pendingPath -Force }
     Set-Content -LiteralPath $statusPath -Value 'Update installed. Starting RelayDesk.'
     $applyLock.Dispose(); $applyLock = $null
-    $appProcess = Start-Process -FilePath $appPath -WorkingDirectory $InstallDirectory -PassThru
+    $launchArguments=@()
+    if($ResumeToken){$launchArguments=@('--resume-update',$ResumeToken)}
+    if($env:RELAYDESK_DATA_DIR){$appStart=New-Object Diagnostics.ProcessStartInfo;$appStart.UseShellExecute=$false;$appStart.EnvironmentVariables['RELAYDESK_DATA_DIR']=$env:RELAYDESK_DATA_DIR}else{$appStart=New-Object Diagnostics.ProcessStartInfo;$appStart.UseShellExecute=$true}
+    $appStart.FileName=$appPath;$appStart.WorkingDirectory=$InstallDirectory
+    if($launchArguments.Count){$appStart.Arguments=$launchArguments -join ' '}
+    $appProcess=[Diagnostics.Process]::Start($appStart)
     Set-Content -LiteralPath $statusPath -Value ('Update installed. RelayDesk PID ' + $appProcess.Id)
 } catch {
     Set-Content -LiteralPath $statusPath -Value $_.Exception.Message

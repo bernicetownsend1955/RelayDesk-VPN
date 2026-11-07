@@ -224,6 +224,25 @@ static class Program
             Call(window,"RefreshFromBackend");
             Check(((TextBlock)window.FindName("ServerHint")).Text.Contains("При подключении: TUN"),"Stopped dashboard labels the planned auto TUN mode without claiming active traffic");
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
+            Call(window,"SelectPage",3);
+            var editor=(TextBox)backend.FindName("ConfigEditor");var profileName=(TextBox)backend.FindName("ProfileName");
+            string savedEditor=editor.Text,savedName=profileName.Text;
+            editor.Text="{ draft JSON";profileName.Text="Unsaved update draft";
+            var resume=backend.CaptureUpdate();
+            Check(resume.Page==3&&!resume.Vpn&&!resume.Zapret&&resume.Draft["ConfigEditor"]==editor.Text&&resume.Draft["ProfileName"]==profileName.Text,"Update snapshot preserves disconnected state, page and unsaved draft without validating it as live config");
+            Check(UpdateRestart.Take(folder,Guid.NewGuid().ToString("N"))==null&&File.Exists(UpdateRestart.PathIn(folder)),"Wrong restart token cannot consume saved state");
+            editor.Text=savedEditor;profileName.Text=savedName;
+            backend.ResumeAfterUpdate(resume.Token).GetAwaiter().GetResult();Pump();
+            Check(editor.Text=="{ draft JSON"&&profileName.Text=="Unsaved update draft"&&!backend.ModernSession.ProxyRunning,"Resume restores draft fields and never enables previously disabled VPN");
+            Check(UpdateRestart.Take(folder,resume.Token)==null,"Restart snapshot is consumed once and cannot reconnect on a later ordinary launch");
+            editor.Text=savedEditor;profileName.Text=savedName;
+            foreach(var mode in new[]{(false,false),(true,false),(false,true),(true,true)})
+            {
+                var token=Guid.NewGuid().ToString("N");UpdateRestart.Save(folder,new(){Token=token,Vpn=mode.Item1,Zapret=mode.Item2,ProfileId=profile.Id});
+                var taken=UpdateRestart.Take(folder,token)!;Check(taken.Vpn==mode.Item1&&taken.Zapret==mode.Item2&&taken.ProfileId==profile.Id,"Restart snapshot retains component combination "+mode);
+            }
+            var expired=Guid.NewGuid().ToString("N");UpdateRestart.Save(folder,new(){Token=expired,CreatedUtc=DateTime.UtcNow.AddHours(-1),Vpn=true});
+            Check(UpdateRestart.Take(folder,expired)==null,"Expired restart state cannot reconnect unexpectedly");File.Delete(UpdateRestart.PathIn(folder));
             Call(window,"ClosePreview",window,new RoutedEventArgs());Pump(350);Check(!app.Windows.OfType<MainWindow>().Any(),"Caption close button uses existing core shutdown lifecycle");
             var reopened=new Store(folder);Check(reopened.Profiles.Single().Config==profile.Config&&reopened.Settings.LastConnectedProfileId==profile.Id,"Settings and profile survive complete modern-window lifecycle");
             Console.WriteLine($"COMPLETE: {count} production shell and data-preservation checks passed.");return 0;

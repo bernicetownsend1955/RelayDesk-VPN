@@ -70,6 +70,7 @@ public partial class Workspace : UserControl
         InitializeSupport();
         InitializeConnections();
         InitializeStartup();
+        InitializeUpdateHandoff();
         Write("RelayDesk " + AppUpdates.CurrentVersion + ". Сборка: " + Environment.ProcessPath);
     }
     void WindowsThemeChanged(object sender, UserPreferenceChangedEventArgs e) => Dispatcher.BeginInvoke(new Action(() => { if (store.Settings.Theme == "Системная") ApplyTheme(); }));
@@ -78,7 +79,7 @@ public partial class Workspace : UserControl
         if (closed) return;
         e.Cancel = true;
         if (closing) return;
-        if (HasChanges() && MessageBox.Show(Window.GetWindow(this), "Есть несохранённые изменения профиля. Закрыть без сохранения?", "RelayDesk", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+        if (!updateClosing && HasChanges() && MessageBox.Show(Window.GetWindow(this), "Есть несохранённые изменения профиля. Закрыть без сохранения?", "RelayDesk", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
         closing = true; IsEnabled = false; startupCancel.Cancel(); diagnostics.Cancel(); automationCancel.Cancel(); updateTimer.Stop(); updateCancel.Cancel(); supportTimer.Stop(); supportCancel.Cancel(); connectionTimer.Stop(); connectionCancel.Cancel();
         try
         {
@@ -86,8 +87,10 @@ public partial class Workspace : UserControl
             while (session.Busy || automationBusy || updatesBusy || supportBusy || readingConnections || subscriptionBusy || pingBusy) await Task.Delay(100);
             connectionMonitor.Dispose();
             support.Dispose();
+            if(!updateClosing&&PendingUpdates.App(store.Folder)?.Release.Available==true)CaptureUpdate();
+            updateHandoffCancel.Cancel();
             await session.StopAll(); SaveGlobal();
-            if (Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR") == null) _ = PendingUpdates.StartApp(store.Folder, AppContext.BaseDirectory);
+            if (!updateClosing && Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR") == null) _ = PendingUpdates.StartApp(store.Folder, AppContext.BaseDirectory);
         }
         catch (Exception ex) { Write(ex.Message); MessageBox.Show("Ошибка при закрытии: " + ex.Message); }
         finally { SystemEvents.UserPreferenceChanged -= WindowsThemeChanged; closed = true; _ = Dispatcher.BeginInvoke(new Action(() => Window.GetWindow(this).Close())); }

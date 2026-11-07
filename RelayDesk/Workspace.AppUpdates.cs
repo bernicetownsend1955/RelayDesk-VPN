@@ -66,13 +66,16 @@ public partial class Workspace
             if (closing) return;
             var helper = Path.Combine(AppContext.BaseDirectory, "Apply-Update.ps1");
             if (!File.Exists(helper)) throw new FileNotFoundException("Не найден помощник установки обновления.");
+            var restart=CaptureUpdate();
             var start = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
             foreach (var argument in new[] { "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", helper, "-ParentId", Environment.ProcessId.ToString(), "-Installer", installer, "-Sha256", release.File.Hash, "-DataFolder", store.Folder }) start.ArgumentList.Add(argument);
+            start.ArgumentList.Add("-ResumeToken");start.ArgumentList.Add(restart.Token);
             using var registration = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\RelayDesk-Desktop-A7B02E29-4D16-47F0-B8F3-3B829E1F024D_is1");
             var installed = registration?.GetValue("InstallLocation") as string;
             if (!string.IsNullOrWhiteSpace(installed) && string.Equals(Path.GetFullPath(installed).TrimEnd(Path.DirectorySeparatorChar), Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase))
             { start.ArgumentList.Add("-InstallDirectory"); start.ArgumentList.Add(installed); }
             using var process = Process.Start(start) ?? throw new InvalidOperationException("Не удалось запустить помощник установки.");
+            updateClosing=true;
             AppUpdateStatus.Text = "Установщик проверен. Закрываю RelayDesk для обновления.";
             // ClosingWindow waits for updatesBusy before stopping the owned cores.
             updatesBusy = installingUpdate = false;
