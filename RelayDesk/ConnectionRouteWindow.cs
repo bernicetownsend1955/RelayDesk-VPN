@@ -16,7 +16,7 @@ public sealed class ConnectionRouteWindow : ThemedWindow
         var content = new StackPanel(); panel.Children.Add(new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = content });
         content.Children.Add(new TextBlock { Text = kind.StartsWith("process_") ? "Маршрут приложения" : "Маршрут адреса", FontSize = 23, FontWeight = FontWeights.SemiBold });
         content.Children.Add(new TextBlock { Text = value, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0,10,0,8) });
-        content.Children.Add(new TextBlock { Text = "Профиль: " + profile.Name, Style = (Style)FindResource("Caption") });
+        content.Children.Add(new TextBlock { Text = "Общее правило для всех VPN и групп", Style = (Style)FindResource("Caption") });
         var existing = profile.QuickRoutes.FirstOrDefault(r => r.Value == value && (r.Kind == kind || kind == "domain" && r.Kind == "domain_suffix"));
         var choices = new[] { "Напрямую" }.Concat(proxyTags.Select(t => "VPN / " + t)).Append("Через zapret").ToArray();
         var choice = new ComboBox { ItemsSource = choices, Margin = new Thickness(0,16,0,0), SelectedIndex = existing?.Zapret == true ? choices.Length - 1 : existing != null && !existing.Direct ? Array.IndexOf(proxyTags, existing.Outbound) + 1 : 0 };

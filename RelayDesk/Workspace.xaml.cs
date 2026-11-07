@@ -174,7 +174,7 @@ public partial class Workspace : UserControl
         SettingsHint.Text = p.Managed ? "Профиль из ссылки. TUN и DNS применяются к конфигурации sing-box при сохранении." : p.Core == "zapret" ? "Это профиль аргументов winws из первой версии. Для запуска используй панель zapret и вкладку «Ядра»." : "Полная конфигурация сохраняется целиком. TUN и DNS меняются в исходном JSON / YAML; системный прокси — ниже.";
         ConfigEditor.Text = p.Managed ? BuildPreview(p) : p.Config;
         ConfigHint.Text = p.Managed ? "Полный JSON для просмотра. Чтобы редактировать вручную, сохрани текст: профиль станет ручным, а поля TUN и DNS будут заменены настройками в JSON." : "Исходная конфигурация. Проверка JSON проверяет синтаксис; совместимость проверяет выбранное ядро.";
-        if (p.QuickRoutes.Count > 0) ConfigHint.Text += " Быстрые правила из «Соединений» хранятся отдельно в профиле и добавляются при запуске ядра.";
+        if (SharedRouting.Rules(p,store.Settings).Count > 0) ConfigHint.Text += " Общие правила из «Соединений» действуют на все профили и добавляются при запуске ядра.";
         if (!p.Managed && RuntimePolicy.Settings(store.Settings, session.ZapretRunning ? ConnectionMode.Combined : ConnectionMode.VpnOnly).DiscordSplit) ConfigHint.Text += " При совместном запуске добавляются исключения Discord и выбранных EXE; DNS и исходные правила сохраняются.";
         ServerTitle.Text = p.Name; ServerDescription.Text = p.Protocol + " / " + p.Core + (p.Host.Length > 0 ? $"\n{p.Host}:{p.Port}" : "\nПолная конфигурация");
         SidebarProfileName.Text = p.Name; SidebarProfileGroup.Text = p.Core + (p.SubscriptionGroup.Length > 0 ? " / "+p.SubscriptionGroup : "");

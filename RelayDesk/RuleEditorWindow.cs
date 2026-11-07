@@ -73,7 +73,7 @@ public sealed class RuleEditorWindow : Window
         conflictBox.Child=conflictRows;routeFooter.Children.Add(conflictBox);
         route.SelectionChanged+=(_,_)=>UpdatePreview();
         status.Foreground=new SolidColorBrush(Color.FromRgb(226,178,148));status.Margin=new Thickness(0,8,0,0);status.TextWrapping=TextWrapping.Wrap;routeFooter.Children.Add(status);
-        routeFooter.Children.Add(new TextBlock{Text="Правила сохраняются для выбранного профиля. Применение переподключает VPN.",Foreground=Muted,FontSize=11,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,0)});
+        routeFooter.Children.Add(new TextBlock{Text="Правила общие для всех VPN и групп. Применение переподключает работающий VPN.",Foreground=Muted,FontSize=11,TextWrapping=TextWrapping.Wrap,Margin=new Thickness(0,8,0,0)});
         kind.SelectionChanged+=(_,_)=>{hint.Text=RouteRules.Example(Kind);appSection.Visibility=Kind=="process_path"?Visibility.Visible:Visibility.Collapsed;UpdatePreview();};
         string targetKind=(draft??existing)?.Kind??initialKind;
         if(targetKind=="browser_default")targetKind="process_path";

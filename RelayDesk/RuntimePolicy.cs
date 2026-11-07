@@ -22,7 +22,9 @@ public static class RuntimePolicy
     {
         var effective = Settings(settings,mode);
         if (p.Core is not ("sing-box" or "Xray")) effective.DiscordSplit = false;
-        return QuickRouting.Apply(JsonTools.Build(p,effective),p.Core,p.QuickRoutes,mode == ConnectionMode.Combined);
+        var config=JsonTools.Build(p,effective);
+        if(SharedRouting.NeedsTun(p,settings))config=ApplicationRoutes.PrepareTun(config);
+        return QuickRouting.Apply(config,p.Core,SharedRouting.ForProfile(p,settings),mode == ConnectionMode.Combined);
     }
     public static string[] ZapretArguments(Preferences settings, ConnectionMode mode, string? strategy = null)
     {

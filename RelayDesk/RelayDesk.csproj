@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.25.7</Version>
-    <InformationalVersion>0.25.7-russian-settings-text</InformationalVersion>
+    <Version>0.26.0</Version>
+    <InformationalVersion>0.26.0-shared-routing</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>

@@ -86,7 +86,7 @@ public partial class MainWindow : Window
             loadingUi=true;ServerChoice.ItemsSource=new[]{"Автоматически"}.Concat(state.Servers.Select(s=>s.Name)).ToArray();RefreshGroups();loadingUi=false;RefreshProfiles();
         }
         var selected=backend.ModernProfile;string id=selected?.Id??"";
-        string rules=selected==null?"":id+"|"+System.Text.Json.JsonSerializer.Serialize(selected.QuickRoutes);
+        string rules=selected==null?"":id+"|"+System.Text.Json.JsonSerializer.Serialize(SharedRouting.Rules(selected,store.Settings));
         if(!rulesDialogOpen&&rules!=ruleFingerprint){selectedId=id;LoadProfileRules();}
         loadingUi=true;
         state.AutoServer=store.Settings.AutoServer;state.AutoStrategy=store.Settings.AutoZapret;
@@ -110,12 +110,12 @@ public partial class MainWindow : Window
         if(profile!=null)
         {
             int index=0;
-            foreach(var q in profile.QuickRoutes)
+            foreach(var q in SharedRouting.Rules(profile,backend.ModernStore.Settings))
             {
                 string id=q.Id.Length>0?q.Id:Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(q.Kind+"|"+q.Value+"|"+index++)))[..24];
                 state.Rules.Add(new(){Id=id,Kind=q.Kind,Value=q.Value,Name=q.Name.Length>0?q.Name:q.Kind=="process_path"?Path.GetFileName(q.Value):q.Value,Route=q.Zapret?"Через zapret":q.Direct?"Напрямую":"Через VPN",OutboundTag=q.Outbound});
             }
-            ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(profile.QuickRoutes);
+            ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(SharedRouting.Rules(profile,backend.ModernStore.Settings));
         }
         else ruleFingerprint="";
         state.Rules.Add(new(){Id="source-default",Kind="default",Name="Исходный маршрут профиля",Route="Исходный профиль"});RefreshRoutes();
@@ -127,7 +127,7 @@ public partial class MainWindow : Window
             var profile=backend.ModernProfile??throw new InvalidOperationException("Выбери профиль.");
             string proxy=ProxyTag(profile);
             var routes=state.Rules.Where(r=>r.Kind!="default").Select(r=>new QuickRoute(r.Kind,r.Value,r.Route=="Через zapret"?"@zapret":r.Route=="Напрямую"?"@direct":r.OutboundTag.Length>0&&!r.OutboundTag.StartsWith('@')?r.OutboundTag:proxy,r.Route=="Напрямую",r.Route=="Через zapret",r.Name,r.Id)).ToArray();
-            backend.ModernSaveRoutes(routes);ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(backend.ModernProfile!.QuickRoutes);pendingRules.Add(profile.Id);RefreshRoutes();return true;
+            backend.ModernSaveRoutes(routes);ruleFingerprint=profile.Id+"|"+System.Text.Json.JsonSerializer.Serialize(backend.ModernProfile!.QuickRoutes);foreach(var p in backend.ModernStore.Profiles)pendingRules.Add(p.Id);RefreshRoutes();return true;
         }
         catch(Exception ex){LoadProfileRules();Toast(ProgramJournal.Clean(ex.Message));return false;}
     }
@@ -220,14 +220,14 @@ public partial class MainWindow : Window
     }
     void OpenUpdates(object sender,RoutedEventArgs e)=>ShowAdvanced(6);
     void BackToPanel(object sender,RoutedEventArgs e){SelectPage(currentPage);RefreshFromBackend();}
-    async void ApplyRules(object sender,RoutedEventArgs e){try{await backend.ModernApplyRoutes();if(backend.ModernProfile!=null)pendingRules.Remove(backend.ModernProfile.Id);Toast("Правила применены. Соединения переподключены.");}catch(Exception ex){Toast(ex.Message);}}
+    async void ApplyRules(object sender,RoutedEventArgs e){try{await backend.ModernApplyRoutes();if(backend.ModernProfile!=null)pendingRules.Remove(backend.ModernSession.ActiveProfile?.Id??backend.ModernProfile.Id);Toast("Правила применены. Соединения переподключены.");}catch(Exception ex){Toast(ex.Message);}}
     void Toast(string text){Notice.Text=ProgramJournal.Clean(text);}
     void Save()
     {
         var p=backend.ModernStore.Settings;p.InterfaceMotion=state.Motion;p.AsciiBackground=state.CityMotion;p.GraphiteGlass=state.Glass;p.QuietMode=state.QuietMode;p.TrayEnabled=state.TrayEnabled;
         try{backend.ModernStore.Save();}catch(Exception ex){Toast(ex.Message);}
     }
-    void Help(object sender,RoutedEventArgs e)=>MessageBox.Show(this,"RelayDesk "+AppUpdates.CurrentVersion+"\n\nVPN и zapret управляются отдельно. Запуск ядра не доказывает доступность сети: используй проверку HTTPS.\n\nПравила относятся к выбранному профилю. Кнопка применения переподключает его.\n\nРасширенные настройки содержат JSON/YAML, подписки, ядра, диагностику и автозапуск.\n\nДанные: "+backend.ModernStore.Folder,"RelayDesk");
+    void Help(object sender,RoutedEventArgs e)=>MessageBox.Show(this,"RelayDesk "+AppUpdates.CurrentVersion+"\n\nVPN и zapret управляются отдельно. Запуск ядра не доказывает доступность сети: используй проверку HTTPS.\n\nПравила общие для всех VPN и групп. Кнопка применения переподключает его.\n\nРасширенные настройки содержат JSON/YAML, подписки, ядра, диагностику и автозапуск.\n\nДанные: "+backend.ModernStore.Folder,"RelayDesk");
     void Minimize(object sender,RoutedEventArgs e)=>HideToTray();
     void Maximize(object sender,RoutedEventArgs e)=>WindowState=WindowState==WindowState.Maximized?WindowState.Normal:WindowState.Maximized;
     void ClosePreview(object sender,RoutedEventArgs e)=>Close();

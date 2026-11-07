@@ -21,9 +21,9 @@ public partial class MainWindow
         if(rules.Count==0)AppRoutes.Children.Add(new TextBlock{Text="Правил пока нет или ничего не найдено. Добавь приложение, сайт или IP.",Margin=new Thickness(12),Foreground=(Brush)FindResource("Muted")});
         DefaultRouteHost.Children.Clear();DefaultRouteHost.Children.Add(RuleRow(state.Rules.First(r=>r.Kind=="default"),true));
         refreshingRoutes=false;
-        DiscoveryNotice.Text="Профиль: "+(backend.ModernProfile?.Name??"не выбран")+". Изменения сохраняются здесь; применение переподключит ядро.";
+        DiscoveryNotice.Text="Общие правила для всех VPN и групп. Применение переподключит работающий VPN.";
         RulesCount.Text="Правил: "+state.Rules.Count(r=>r.Kind!="default")+". Проверяются сверху вниз; первое совпадение определяет маршрут.";
-        RouteHint.Text="Правила выбранного профиля. Сохранённые изменения применяются при подключении.";
+        RouteHint.Text="Общие правила применяются при подключении любого сервера. Для правил приложений sing-box использует TUN.";
         RefreshConnections();RefreshTrayStatus();
     }
     Grid RuleRow(RouteRule rule,bool compact)

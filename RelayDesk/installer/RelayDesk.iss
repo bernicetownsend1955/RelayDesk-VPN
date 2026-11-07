@@ -1,8 +1,8 @@
 #ifndef AppVersion
- #define AppVersion "0.25.7"
+ #define AppVersion "0.26.0"
 #endif
 #ifndef PublishDir
- #define PublishDir "..\release\0.25.7"
+ #define PublishDir "..\release\0.26.0"
 #endif
 #ifdef TestBuild
  #define ProductName "RelayDesk Installer QA"

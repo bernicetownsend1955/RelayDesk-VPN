@@ -60,8 +60,8 @@ static class Program
             var persisted=new Store(folder).Profiles.Single();Check(persisted.QuickRoutes.Any(r=>r.Value=="api.example.org"&&r.Direct&&r.Name=="My API")&&persisted.Config==profile.Config,"Modern rule saves to the actual profile while preserving original JSON");
             Check(RuleMatching.Overlaps(rule,[new(){Kind="domain_suffix",Value="example.org",Route="Через VPN"}]).Count==1,"Modern rule conflict analyzer detects suffix overlap");
             var protectedConfig=persisted.Config;
-            try{backend.ModernSaveRoutes([new("process_name","Discord.exe","proxy")]);throw new Exception("Missing TUN accepted");}catch(InvalidOperationException){}
-            Check(new Store(folder).Profiles.Single().Config==protectedConfig&&new Store(folder).Profiles.Single().QuickRoutes.Count==persisted.QuickRoutes.Count,"Unsupported route leaves saved profile and routes unchanged");
+            try{backend.ModernSaveRoutes([new("unknown","Discord.exe","proxy")]);throw new Exception("Invalid rule accepted");}catch(FormatException){}
+            Check(new Store(folder).Profiles.Single().Config==protectedConfig&&new Store(folder).Profiles.Single().QuickRoutes.Count==persisted.QuickRoutes.Count,"Invalid shared rule leaves saved profile and routes unchanged");
             Call(window,"ShowAdvanced",2);Pump();Check(((UIElement)window.FindName("AdvancedHost")).Visibility==Visibility.Visible,"Original JSON editor and advanced controls remain available");
             Call(window,"BackToPanel",window,new RoutedEventArgs());
             Call(window,"SelectPage",1);Pump();Click(window,"Настроить");Check(((UIElement)window.FindName("AdvancedHost")).Visibility==Visibility.Visible&&((UIElement)window.FindName("StandardContent")).Visibility==Visibility.Visible,"Profile Configure button preserves modern navigation");
@@ -165,7 +165,7 @@ static class Program
             var replacement=ConnectionBatch.Create([connections[1]],0,"Через VPN",[domainBatch[1]]);Check(replacement[0].Id==domainBatch[1].Id,"Batch updates matching rule without changing identity");
             try{ConnectionBatch.Create([connections[0] with {CanApplication=false}],1,"Напрямую",[]);throw new Exception("Unsupported application batch accepted");}catch(InvalidOperationException){}
             Check(true,"Unsupported application target rejects complete batch");
-            var beforeBatch=File.ReadAllText(Path.Combine(folder,"profiles.json"));Call(window,"SaveConnectionBatch",batch);Check(File.ReadAllText(Path.Combine(folder,"profiles.json"))==beforeBatch,"Invalid EXE batch leaves all saved profile data unchanged");
+            var beforeBatch=File.ReadAllText(Path.Combine(folder,"profiles.json"));Call(window,"SaveConnectionBatch",(object)batch.Select(r=>new RouteRule{Kind="unknown",Value=r.Value,Route=r.Route}).ToArray());Check(File.ReadAllText(Path.Combine(folder,"profiles.json"))==beforeBatch,"Invalid batch leaves all saved profile data unchanged");
             Call(window,"SaveConnectionBatch",domainBatch);var afterBatch=new Store(folder).Profiles.Single();Check(domainBatch.All(r=>afterBatch.QuickRoutes.Any(q=>q.Value==r.Value&&q.Direct)),"Domain batch saves all rules in a single profile update");
             Check(afterBatch.Config==profile.Config,"Batch routing preserves original full JSON");
             Call(window,"ClearConnectionFilters",window,new RoutedEventArgs());Call(window,"SelectConnection",connections[0],true);Call(window,"RefreshConnections");
@@ -183,6 +183,24 @@ static class Program
             Check(backend.ModernProfile!.SystemProxy&&backend.ModernProfile.Dns=="system"&&!imported.SystemProxy,"Existing subscription repair uses new profile snapshot and corrects default DNS");
             backend.ModernProfile.Dns="9.9.9.9";backend.ModernSelect(backend.ModernProfile);backend.ModernEnableSubscriptionTraffic();
             Check(backend.ModernProfile!.Dns=="9.9.9.9","Subscription repair preserves custom DNS");
+            var activeSnapshot=backend.ModernProfile;
+            backend.ModernSaveRoutes([new("domain_suffix","shared.example.org","proxy"),new("process_name","Example.exe","@direct",true)]);
+            var sharedCopy=backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id);
+            Check(sharedCopy.QuickRoutes.Count==2&&backend.ModernProfile!.QuickRoutes.Count==2&&activeSnapshot!.QuickRoutes.Count!=2,"Editing subscription updates common rules and all profile mirrors without mutating snapshots");
+            var sharedRuntime=JsonTools.Object(RuntimePolicy.Config(sharedCopy,backend.ModernStore.Settings,ConnectionMode.VpnOnly));
+            Check(sharedRuntime["inbounds"]!.AsArray().Any(i=>JsonTools.Text(i?["type"])=="tun"&&JsonTools.Text(i?["auto_route"])=="true"),"Shared application rule enables TUN in raw sing-box runtime without editing source JSON");
+            var subscriptionRuntime=JsonTools.Object(RuntimePolicy.Config(backend.ModernProfile!,backend.ModernStore.Settings,ConnectionMode.VpnOnly));
+            Check(subscriptionRuntime["route"]!["rules"]!.ToJsonString().Contains("shared.example.org"),"Managed subscription receives the same common domain rules");
+            var sharedReload=new Store(folder);
+            Check(sharedReload.Settings.SharedQuickRoutes!.Count==2&&sharedReload.Profiles.All(p=>p.QuickRoutes.Count==2),"Common rules persist across restart for every group");
+            var migration=new Store(Path.Combine(folder,"migration"));
+            migration.Profiles.Add(new Profile{Name="Мой VPN",Config=profile.Config,QuickRoutes=[new("domain","same.example.org","old-proxy",true)]});
+            migration.Profiles.Add(new Profile{Name="Other group",SubscriptionGroup="Other",Config=profile.Config,QuickRoutes=[new("domain","same.example.org","proxy"),new("domain_suffix","extra.example.org","proxy")]});
+            SharedRouting.Migrate(migration);
+            Check(migration.Settings.SharedQuickRoutes!.Count==2&&migration.Settings.SharedQuickRoutes[0].Direct,"Migration preserves My VPN precedence and merges unique rules from other groups");
+            var alternate=SharedRouting.Copy(sharedCopy);alternate.Config=alternate.Config.Replace("\"proxy\"","\"other-proxy\"");
+            var remapped=SharedRouting.ForProfile(alternate,backend.ModernStore.Settings);
+            Check(remapped.First(r=>!r.Direct).Outbound=="other-proxy","Common VPN route resolves to the destination profile outbound tag");
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
             Call(window,"ClosePreview",window,new RoutedEventArgs());Pump(350);Check(!app.Windows.OfType<MainWindow>().Any(),"Caption close button uses existing core shutdown lifecycle");
             var reopened=new Store(folder);Check(reopened.Profiles.Single().Config==profile.Config&&reopened.Settings.LastConnectedProfileId==profile.Id,"Settings and profile survive complete modern-window lifecycle");

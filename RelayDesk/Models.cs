@@ -36,6 +36,7 @@ public class Preferences
     public bool QuietMode { get; set; } = true;
     public bool TrayEnabled { get; set; } = true;
     public int ModernUiVersion { get; set; }
+    public List<QuickRoute>? SharedQuickRoutes { get; set; }
     public string LastConnectedProfileId { get; set; } = "";
     public List<SubscriptionSource> Subscriptions { get; set; } = new();
     public List<string> SubscriptionGroups { get; set; } = new();

@@ -94,7 +94,7 @@ static class Program
                 workspace.Dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             }
             var saved = new Store(folder).Profiles.Single();
-            Check(saved.QuickRoutes.Any(r => r.Kind == "domain" && r.Value == "z.example" && r.Outbound == "proxy") && saved.QuickRoutes.Any(r => r.Kind == "process_path" && r.Value == @"C:\Apps\Z.exe"), "Connection clicks save domain and process rules to selected profile");
+            Check(saved.QuickRoutes.Any(r => r.Kind == "domain" && r.Value == "z.example" && r.Outbound == "@proxy") && saved.QuickRoutes.Any(r => r.Kind == "process_path" && r.Value == @"C:\Apps\Z.exe"), "Connection clicks save domain and process rules to shared routing");
             Check(saved.Config == store.Profiles[0].Config, "Quick rule editing preserves original JSON");
             Check(((TextBlock)workspace.FindName("ConnectionActionStatus")).Text.Contains("сохранено"), "Rule feedback remains visible outside the refreshed status");
             foreach (bool remove in new[] { false, true })

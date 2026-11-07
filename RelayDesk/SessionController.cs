@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Security.Principal;
@@ -120,7 +120,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     void Preflight(Profile? p, bool zapret, Preferences settings, ConnectionMode mode)
     {
         var effective = RuntimePolicy.Settings(settings, mode);
-        bool rawTun = p is { Managed: false, Core: "sing-box" } && (effective.DiscordSplit || (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true);
+        bool rawTun = p != null && SharedRouting.NeedsTun(p,settings) || p is { Managed: false, Core: "sing-box" } && (effective.DiscordSplit || (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true);
         if ((zapret || rawTun || p != null && (p.Managed && p.Tun || effective.DiscordSplit)) && !IsAdmin()) throw new InvalidOperationException("Для zapret / TUN запусти RelayDesk от имени администратора.");
         if (p != null)
         {
@@ -140,7 +140,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             _ = WriteConfig(p, false, settings, mode);
             if (rawTun && !ProxyRunning && NetworkInterface.GetAllNetworkInterfaces().Any(n => n.OperationalStatus == OperationalStatus.Up && n.Description.Contains("sing-tun", StringComparison.OrdinalIgnoreCase))) throw new InvalidOperationException("Уже работает TUN другого приложения. Отключи его перед запуском RelayDesk.");
         }
-        if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode), p?.QuickRoutes ?? [], settings.ZapretExe, settings.VoiceUdpDesync); }
+        if (zapret) { ValidateExecutable(settings.ZapretExe, "zapret"); _ = ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(settings, mode), SharedRouting.Rules(p, settings), settings.ZapretExe, settings.VoiceUdpDesync); }
     }
     static bool HasLocalInput(Profile p) => p.Managed || p.SystemProxy || p.Core is "sing-box" or "Xray" && (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?[p.Core == "sing-box" ? "type" : "protocol"]) is "mixed" or "socks" or "http") == true;
     async Task StartMode(Profile? p, bool zapret, Preferences settings, ConnectionMode mode)
@@ -153,8 +153,10 @@ public sealed class EngineSession(Store store, Action<string> log)
             var restored = ProxyLease.DisableUnavailableProfileProxy(endpoints);
             if (restored.Length > 0) log(restored);
         }
-        if (zapret) await StartZapretCore(settings, mode, routes: p?.QuickRoutes);
+        if (zapret) await StartZapretCore(settings, mode, routes: SharedRouting.Rules(p, settings));
         if (p != null) await StartProxyCore(p, settings, mode);
+        if(p?.Core=="Xray"&&settings.SharedQuickRoutes?.Any(r=>r.Kind is "process_name" or "process_path")==true)
+            log("Xray: общие правила доменов и IP применены. Для общих правил EXE выбери sing-box с TUN; Xray их не обрабатывает.");
         if (p?.Core == "Xray" && RuntimePolicy.Settings(settings,mode).DiscordSplit)
             log("Xray: Discord направлен напрямую по доменам и указанным IP голоса. Правила EXE требуют профиля sing-box с TUN и к Xray не применяются.");
         Mode = mode;

@@ -51,11 +51,11 @@ public partial class Workspace
     public string ModernUpdateNotes=>appRelease?.Notes??"";
     public void ModernPrepareData()
     {
-        if(store.Settings.ModernUiVersion>=1)return;
-        var backup=Path.Combine(store.Folder,"backups","before-0.25.0-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"));
+        if(store.Settings.ModernUiVersion>=1&&store.Settings.SharedQuickRoutes!=null)return;
+        var backup=Path.Combine(store.Folder,"backups","before-shared-routes-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"));
         Directory.CreateDirectory(backup);
         foreach(string name in new[]{"profiles.json","settings.json"}){var file=Path.Combine(store.Folder,name);if(File.Exists(file))File.Copy(file,Path.Combine(backup,name),true);}
-        store.Settings.ModernUiVersion=1;store.Save();
+        store.Settings.ModernUiVersion=1;SharedRouting.Migrate(store);store.Save();
     }
     public bool ModernSelect(Profile profile)
     {
@@ -103,21 +103,26 @@ public partial class Workspace
     public void ModernSaveRoutes(IReadOnlyList<QuickRoute> routes)
     {
         if(ModernBusy||HasChanges())throw new InvalidOperationException("Сохрани изменения профиля и дождись завершения операции.");
-        var profile=RequireProfile();var copy=JsonSerializer.Deserialize<Profile>(JsonSerializer.Serialize(profile))!;
-        copy.QuickRoutes=routes.ToList();
-        _=RuntimePolicy.Config(copy,store.Settings,session.ZapretRunning?ConnectionMode.Combined:ConnectionMode.VpnOnly);
+        var profile=RequireProfile();
+        foreach(var route in routes)QuickRouting.Validate(route);
+        var previous=store.Settings.SharedQuickRoutes;
+        var normalized=SharedRouting.Normalize(routes);
+        var settings=JsonSerializer.Deserialize<Preferences>(JsonSerializer.Serialize(store.Settings))!;
+        settings.SharedQuickRoutes=normalized;
+        _=RuntimePolicy.Config(profile,settings,session.ZapretRunning?ConnectionMode.Combined:ConnectionMode.VpnOnly);
         if(routes.Any(r=>r.Zapret))_=ZapretQuickRoutes.Apply(RuntimePolicy.ZapretArguments(store.Settings,ConnectionMode.Combined),routes,store.Settings.ZapretExe,store.Settings.VoiceUdpDesync);
         // Keep the active session's profile snapshot intact until Reconfigure.
         // Otherwise Transition sees the same object and skips the restart.
-        var index=store.Profiles.IndexOf(profile);store.Profiles[index]=copy;
-        try{store.Save();}catch{store.Profiles[index]=profile;throw;}
-        selected=copy;loading=true;RefreshProfiles();ProfileList.SelectedItem=copy;loading=false;DisplayProfile();
+        var previousProfiles=store.Profiles.ToArray();
+        var copies=previousProfiles.Select(p=>{var copy=SharedRouting.Copy(p);copy.QuickRoutes=normalized.ToList();return copy;}).ToArray();
+        store.Profiles.Clear();store.Profiles.AddRange(copies);store.Settings.SharedQuickRoutes=normalized;
+        try{store.Save();}catch{store.Profiles.Clear();store.Profiles.AddRange(previousProfiles);store.Settings.SharedQuickRoutes=previous;throw;}
+        selected=copies.Single(p=>p.Id==profile.Id);loading=true;RefreshProfiles();ProfileList.SelectedItem=selected;loading=false;DisplayProfile();
     }
     public async Task ModernApplyRoutes()
     {
         if(ModernBusy||HasChanges())throw new InvalidOperationException("Сохрани изменения и дождись завершения операции.");
-        var profile=RequireProfile();
-        if(session.ProxyRunning&&session.ActiveProfile?.Id!=profile.Id)throw new InvalidOperationException("Выбери работающий профиль.");
+        var profile=session.ProxyRunning?store.Profiles.Single(p=>p.Id==session.ActiveProfile!.Id):RequireProfile();
         await session.Reconfigure(profile);
     }
 }
