@@ -164,17 +164,18 @@ public partial class Workspace : UserControl
         if (selected == null) return;
         var p = selected; loading = true;
         ProfileName.Text = p.Name; CoreChoice.SelectedItem = p.Core;
-        Tun.IsChecked = p.Managed ? p.Tun : p.Core == "sing-box" && (JsonTools.Object(p.Config)["inbounds"] as JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true;
-        Tun.IsEnabled = p.Managed;
+        Tun.IsChecked = p.Core=="sing-box" && (store.Settings.Connection!=null ? store.Settings.Connection.Tun : p.Managed ? p.Tun : (JsonTools.Object(p.Config)["inbounds"] as JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true);
+        Tun.IsEnabled = p.Managed||store.Settings.Connection!=null&&p.Core=="sing-box";
         EditTunJson.Visibility = !p.Managed && p.Core == "sing-box" ? Visibility.Visible : Visibility.Collapsed;
         UpdateTunHint();
-        SystemProxy.IsChecked = p.SystemProxy; AutoCandidate.IsChecked = p.AutoCandidate;
-        Dns.Text = p.Dns; LocalPort.Text = p.LocalPort.ToString(); ProxyAddress.Text = p.ProxyUri;
+        SystemProxy.IsChecked = store.Settings.Connection?.SystemProxy??p.SystemProxy; AutoCandidate.IsChecked = p.AutoCandidate;
+        Dns.Text = p.Dns; LocalPort.Text = (store.Settings.Connection?.LocalPort??p.LocalPort).ToString(); ProxyAddress.Text = SharedConnection.Effective(p,store.Settings).ProxyUri;
         TcpHost.Text = p.Host; TcpPort.Text = p.Port > 0 ? p.Port.ToString() : "";
         ManagedFields.Visibility = p.Managed ? Visibility.Visible : Visibility.Collapsed;
         RawFields.Visibility = p.Managed ? Visibility.Collapsed : Visibility.Visible;
         CoreChoice.IsEnabled = !p.Managed;
         SettingsHint.Text = p.Managed ? "Профиль из ссылки. TUN и DNS применяются к конфигурации sing-box при сохранении." : p.Core == "zapret" ? "Это профиль аргументов winws из первой версии. Для запуска используй панель zapret и вкладку «Ядра»." : "Полная конфигурация сохраняется целиком. TUN и DNS меняются в исходном JSON / YAML; системный прокси — ниже.";
+        if(store.Settings.Connection!=null)SettingsHint.Text="TUN, системный прокси и локальный порт общие для всех VPN и групп. DNS, адрес сервера и ключи принадлежат этому профилю.";
         ConfigEditor.Text = p.Managed ? BuildPreview(p) : p.Config;
         ConfigHint.Text = p.Managed ? "Полный JSON для просмотра. Чтобы редактировать вручную, сохрани текст: профиль станет ручным, а поля TUN и DNS будут заменены настройками в JSON." : "Исходная конфигурация. Проверка JSON проверяет синтаксис; совместимость проверяет выбранное ядро.";
         if (SharedRouting.Rules(p,store.Settings).Count > 0) ConfigHint.Text += " Общие правила из «Соединений» действуют на все профили и добавляются при запуске ядра.";
@@ -198,6 +199,7 @@ public partial class Workspace : UserControl
         if (ConfigEditor.Text != savedConfig) throw new InvalidOperationException("Сначала сохрани изменения на вкладке «Конфигурация» или выбери профиль заново.");
         if (string.IsNullOrWhiteSpace(ProfileName.Text)) throw new FormatException("Укажи название профиля.");
         var copy = System.Text.Json.JsonSerializer.Deserialize<Profile>(System.Text.Json.JsonSerializer.Serialize(p))!;
+        if(store.Settings.Connection!=null&&copy.Core=="sing-box"&&Tun.IsChecked!=true&&store.Settings.SharedQuickRoutes?.Any(r=>r.Kind is "process_name" or "process_path")==true)throw new InvalidOperationException("Для общих правил приложений нужен TUN.");
         copy.Name = ProfileName.Text.Trim(); copy.Core = CoreChoice.SelectedItem?.ToString() ?? "sing-box";
         copy.SystemProxy = SystemProxy.IsChecked == true; copy.AutoCandidate = AutoCandidate.IsChecked == true;
         if (p.Managed)
@@ -213,6 +215,8 @@ public partial class Workspace : UserControl
             if (copy.Core is "sing-box" or "Xray") _ = JsonTools.Object(copy.Config);
         }
         store.Profiles[store.Profiles.IndexOf(p)] = copy;
+        if(store.Settings.Connection!=null&&copy.Core is "sing-box" or "Xray")
+            store.Settings.Connection=new(copy.Core=="sing-box"?Tun.IsChecked==true:store.Settings.Connection.Tun,SystemProxy.IsChecked==true,copy.Managed?copy.LocalPort:JsonTools.LocalProxy(copy).Port);
         selected = copy; savedFields = Fields(); SaveGlobal();
         loading = true; RefreshProfiles(); ProfileList.SelectedItem = copy; loading = false; DisplayProfile();
     }
@@ -236,8 +240,18 @@ public partial class Workspace : UserControl
         if (Fields() != savedFields) throw new InvalidOperationException("Сначала сохрани настройки профиля, чтобы не потерять изменения полей.");
         if (p.Managed && MessageBox.Show("Сохранить как ручную конфигурацию? TUN и DNS после этого настраиваются в JSON.", "RelayDesk", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return Task.CompletedTask;
         var text = ConfigEditor.Text;
+        var previousMode=SharedConnection.Read(p);
         if (p.Core is "sing-box" or "Xray") text = JsonTools.Object(text).ToJsonString(JsonTools.Options);
+        ConnectionSettings? updatedConnection=null;
+        if(store.Settings.Connection is { } shared)
+        {
+            var preview=SharedRouting.Copy(p);preview.Config=text;preview.Managed=false;preview.Tun=false;
+            var changed=SharedConnection.Read(preview);
+            updatedConnection=new(previousMode.Tun!=changed.Tun?changed.Tun:shared.Tun,previousMode.SystemProxy!=changed.SystemProxy?changed.SystemProxy:shared.SystemProxy,previousMode.LocalPort!=changed.LocalPort?changed.LocalPort:shared.LocalPort);
+            if(!updatedConnection.Tun&&store.Settings.SharedQuickRoutes?.Any(r=>r.Kind is "process_name" or "process_path")==true)throw new InvalidOperationException("Для общих правил приложений нужен TUN.");
+        }
         p.Config = text; p.Managed = false; p.Tun = false; p.Host = ""; p.Port = 0; p.SourceKey = "";
+        if(updatedConnection!=null)store.Settings.Connection=updatedConnection;
         var endpoints = JsonTools.Endpoints(p); if (endpoints.Count == 1) { p.Host = endpoints[0].Host; p.Port = endpoints[0].Port; }
         store.Save(); DisplayProfile(); Write("Конфигурация сохранена."); return Task.CompletedTask;
     });
@@ -315,7 +329,7 @@ public partial class Workspace : UserControl
         HttpsButton.IsEnabled = false; HttpsResult.Text = "Проверка…";
         try
         {
-            var result = await Diagnostics.Https(JsonTools.LocalProxy(p), TestUrl.Text.Trim(), cancellation);
+            var result = await Diagnostics.Https(session.ActiveProxy??JsonTools.LocalProxy(SharedConnection.Effective(p,store.Settings)), TestUrl.Text.Trim(), cancellation);
             if (ReferenceEquals(p, selected) && ReferenceEquals(session.ActiveProfile, p)) HttpsResult.Text = $"{result.Ms} мс / HTTP {result.Status}";
             Write($"HTTPS через {p.Core}: HTTP {result.Status}, {result.Ms} мс. Ответ проверяемого URL; маршрут определяется конфигурацией ядра.");
         }

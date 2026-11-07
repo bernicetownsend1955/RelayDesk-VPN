@@ -23,8 +23,8 @@ public static class RuntimePolicy
     {
         var effective = Settings(settings,mode);
         if (p.Core is not ("sing-box" or "Xray")) effective.DiscordSplit = false;
-        var runtimeProfile=p;
-        if(LegacySubscriptionDns(p)){runtimeProfile=SharedRouting.Copy(p);runtimeProfile.Dns="system";}
+        var runtimeProfile=SharedConnection.Effective(p,settings);
+        if(LegacySubscriptionDns(p)){if(ReferenceEquals(runtimeProfile,p))runtimeProfile=SharedRouting.Copy(p);runtimeProfile.Dns="system";}
         var config=JsonTools.Build(runtimeProfile,effective);
         if(SharedRouting.NeedsTun(p,settings))config=ApplicationRoutes.PrepareTun(config);
         return QuickRouting.Apply(config,p.Core,SharedRouting.ForProfile(p,settings),mode == ConnectionMode.Combined);

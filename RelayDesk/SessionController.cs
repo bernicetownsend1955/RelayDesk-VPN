@@ -12,6 +12,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     public Process? Zapret { get; private set; }
     public Profile? ActiveProfile { get; private set; }
     public string ActiveTransport { get; private set; } = "";
+    public Uri? ActiveProxy {get;private set;}
     public event Action? Changed;
     public ConnectionMode Mode { get; private set; }
     public string[] ActiveZapretArguments { get; private set; } = [];
@@ -86,7 +87,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     {
         if (busy) throw new InvalidOperationException("Дождись завершения переключения режима.");
         var target = RuntimePolicy.Mode(profile != null, zapret);
-        if (Mode == target && ReferenceEquals(profile, ActiveProfile) && ProxyRunning == (profile != null) && ZapretRunning == zapret) return;
+        if (Mode == target && ReferenceEquals(profile, ActiveProfile) && ProxyRunning == (profile != null) && ZapretRunning == zapret && Equals(activeSettings?.Connection,store.Settings.Connection)) return;
         var previousProfile = ProxyRunning ? ActiveProfile : null; var previousZapret = ZapretRunning;
         var previousSettings = activeSettings ?? store.Settings;
         // Validate and write the target before touching live processes.
@@ -121,13 +122,14 @@ public sealed class EngineSession(Store store, Action<string> log)
     void Preflight(Profile? p, bool zapret, Preferences settings, ConnectionMode mode)
     {
         var effective = RuntimePolicy.Settings(settings, mode);
-        bool rawTun = p != null && SharedRouting.NeedsTun(p,settings) || p is { Managed: false, Core: "sing-box" } && (effective.DiscordSplit || (JsonTools.Object(p.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true);
-        if ((zapret || rawTun || p != null && (p.Managed && p.Tun || effective.DiscordSplit)) && !IsAdmin()) throw new InvalidOperationException("Для zapret / TUN запусти RelayDesk от имени администратора.");
+        var network=p==null?null:SharedConnection.Effective(p,settings);
+        bool rawTun = p != null && SharedRouting.NeedsTun(p,settings) || network is { Managed: false, Core: "sing-box" } && (effective.DiscordSplit || (JsonTools.Object(network.Config)["inbounds"] as System.Text.Json.Nodes.JsonArray)?.Any(n => JsonTools.Text(n?["type"]) == "tun") == true);
+        if ((zapret || rawTun || network != null && (network.Managed && network.Tun || effective.DiscordSplit)) && !IsAdmin()) throw new InvalidOperationException("Для zapret / TUN запусти RelayDesk от имени администратора.");
         if (p != null)
         {
             ValidateExecutable(Executable(p, settings), p.Core);
-            var proxy = JsonTools.LocalProxy(p); if (p.SystemProxy && proxy.Scheme != "http") throw new InvalidOperationException("Для системного прокси нужен HTTP / mixed-вход.");
-            if (HasLocalInput(p) && (!ProxyRunning || ActiveProfile == null || JsonTools.LocalProxy(ActiveProfile).Port != proxy.Port) && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(x => x.Port == proxy.Port))
+            var proxy = JsonTools.LocalProxy(network!); if (network!.SystemProxy && proxy.Scheme != "http") throw new InvalidOperationException("Для системного прокси нужен HTTP / mixed-вход.");
+            if (HasLocalInput(network) && (!ProxyRunning || ActiveProxy?.Port != proxy.Port) && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(x => x.Port == proxy.Port))
             {
                 log($"Порт {proxy.Port} занят. Проверяю оставшиеся процессы RelayDesk перед подключением.");
                 CoreRecovery.Recover(store, log);
@@ -149,7 +151,7 @@ public sealed class EngineSession(Store store, Action<string> log)
         {
             var endpoints = new List<Uri>();
             foreach (var profile in store.Profiles.Where(profile => profile.Core != "zapret"))
-                try { endpoints.Add(JsonTools.LocalProxy(profile)); } catch (FormatException) { }
+                try { endpoints.Add(JsonTools.LocalProxy(SharedConnection.Effective(profile,settings))); } catch (FormatException) { }
             var restored = ProxyLease.DisableUnavailableProfileProxy(endpoints);
             if (restored.Length > 0) log(restored);
         }
@@ -165,8 +167,9 @@ public sealed class EngineSession(Store store, Action<string> log)
     }
     async Task StartProxyCore(Profile p, Preferences settings, ConnectionMode mode)
     {
-        var proxy = JsonTools.LocalProxy(p);
-        if (HasLocalInput(p) && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(x => x.Port == proxy.Port)) throw new InvalidOperationException($"Локальный порт {proxy.Port} уже занят.");
+        var network=SharedConnection.Effective(p,settings);
+        var proxy = JsonTools.LocalProxy(network);
+        if (HasLocalInput(network) && IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpListeners().Any(x => x.Port == proxy.Port)) throw new InvalidOperationException($"Локальный порт {proxy.Port} уже занят.");
         var runtime = WriteConfig(p, false, settings, mode);
         if(RuntimePolicy.LegacySubscriptionDns(p))log("Подписка: прежний DNS по умолчанию 1.1.1.1 заменён системным DNS в конфигурации запуска.");
         XrayConnections.Clear();
@@ -187,7 +190,7 @@ public sealed class EngineSession(Store store, Action<string> log)
         }
         var process = Create(Executable(p, settings), Arguments(p, runtime, false), p.Core);
         Proxy = process; ActiveProfile = p; Start(process);
-        if (HasLocalInput(p))
+        if (HasLocalInput(network))
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
             while (true)
@@ -198,8 +201,9 @@ public sealed class EngineSession(Store store, Action<string> log)
             }
         }
         else { await Task.Delay(500); if (process.HasExited) throw new InvalidOperationException($"Ядро завершилось: код {process.ExitCode}."); }
-        if (p.SystemProxy) { lease.Apply(proxy); log("Системный прокси включён до отключения VPN."); }
-        ActiveTransport=ConnectionTransport.Describe(p,File.ReadAllText(runtime));
+        if (network.SystemProxy) { lease.Apply(proxy); log("Системный прокси включён до отключения VPN."); }
+        ActiveProxy=proxy;
+        ActiveTransport=ConnectionTransport.Describe(network,File.ReadAllText(runtime));
         log($"[{p.Core}] PID {process.Id}"); _ = Observe(process, false);
     }
     async Task StartZapretCore(Preferences settings, ConnectionMode mode, string? strategy = null, IEnumerable<QuickRoute>? routes = null)
@@ -219,7 +223,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             await process.WaitForExitAsync();
             if ((zapret ? Zapret : Proxy) != process) return;
             log($"{(zapret ? "zapret" : "VPN")} завершился: код {process.ExitCode}.");
-            if (zapret) { Zapret = null; ActiveZapretArguments = []; } else { Proxy = null; ActiveProfile = null; ActiveTransport=""; RestoreProxy(); }
+            if (zapret) { Zapret = null; ActiveZapretArguments = []; } else { Proxy = null; ActiveProfile = null; ActiveTransport=""; ActiveProxy=null; RestoreProxy(); }
             process.Dispose();
             while (busy) await Task.Delay(50);
             // If a transition or shutdown already replaced the sibling, it owns the final state.
@@ -233,7 +237,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     async Task StopOwned()
     {
         var proxy = Proxy; var zapret = Zapret; Proxy = null; Zapret = null; ActiveProfile = null;
-        ActiveTransport="";
+        ActiveTransport="";ActiveProxy=null;
         ActiveZapretArguments = [];
         RestoreProxy();
         try { if (proxy != null) await Kill(proxy); }

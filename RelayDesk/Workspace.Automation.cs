@@ -34,7 +34,7 @@ public partial class Workspace
     }
     string BuildPreview(Profile p)
     {
-        return JsonTools.Build(p, RuntimePolicy.Settings(store.Settings, session.ZapretRunning ? ConnectionMode.Combined : ConnectionMode.VpnOnly));
+        return JsonTools.Build(SharedConnection.Effective(p,store.Settings), RuntimePolicy.Settings(store.Settings, session.ZapretRunning ? ConnectionMode.Combined : ConnectionMode.VpnOnly));
     }
     void SaveAutomation(bool validateZapret = true)
     {

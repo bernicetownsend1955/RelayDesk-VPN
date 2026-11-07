@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.27.0</Version>
-    <InformationalVersion>0.27.0-update-resume</InformationalVersion>
+    <Version>0.27.1</Version>
+    <InformationalVersion>0.27.1-shared-connection-mode</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>

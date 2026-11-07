@@ -24,6 +24,7 @@ public partial class Workspace
     void UpdateTunHint()
     {
         bool enabled = Tun.IsChecked == true;
+        if(store.Settings.Connection!=null){TunModeHint.Text=selected?.Core=="sing-box"?"Общая настройка TUN для всех профилей и групп. После сохранения переподключи VPN.":"TUN доступен в sing-box. Для Xray используется общий системный прокси.";return;}
         TunModeHint.Text = selected?.Managed == true
             ? enabled ? "Включён в профиле. Применится после сохранения и следующего подключения." : "Выключен. Для подключения приложения нужен HTTP / SOCKS или системный прокси."
             : selected?.Core == "sing-box"

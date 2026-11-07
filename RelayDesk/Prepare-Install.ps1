@@ -14,6 +14,7 @@ $apps=@(Get-CimInstance Win32_Process -Filter "Name='RelayDesk.exe'" | Where-Obj
  return $owner.Sid -eq $identity
 })
 foreach($app in $apps){
+ $suspendedPending=''
  $token=[guid]::NewGuid().ToString('N')
  $prepared=$false;$modern=$false;$deadline=[DateTime]::UtcNow.AddSeconds(60)
  do {
@@ -57,13 +58,17 @@ public static class RelayDeskCloseWindow {
  public static void Close(uint process) { EnumWindows((h,l)=>{uint p;GetWindowThreadProcessId(h,out p);var title=new StringBuilder(512);GetWindowText(h,title,512);if(p==process&&title.ToString().StartsWith("RelayDesk"))PostMessage(h,0x0010,IntPtr.Zero,IntPtr.Zero);return true;},IntPtr.Zero); }
 }
 '@
+  $pending=Join-Path $DataFolder 'pending-app-update.json'
+  if(Test-Path -LiteralPath $pending){$suspendedPending=$pending+'.manual-'+$token;Move-Item -LiteralPath $pending -Destination $suspendedPending}
   [RelayDeskCloseWindow]::Close($app.ProcessId)
  }
- $deadline=[DateTime]::UtcNow.AddSeconds(60)
- while(Get-Process -Id $app.ProcessId -ErrorAction SilentlyContinue){
-  if([DateTime]::UtcNow -gt $deadline){throw 'RelayDesk did not close; application files have not been replaced'}
-  Start-Sleep -Milliseconds 200
- }
+ try {
+  $deadline=[DateTime]::UtcNow.AddSeconds(60)
+  while(Get-Process -Id $app.ProcessId -ErrorAction SilentlyContinue){
+   if([DateTime]::UtcNow -gt $deadline){throw 'RelayDesk did not close; application files have not been replaced'}
+   Start-Sleep -Milliseconds 200
+  }
+ } finally {if($suspendedPending -and (Test-Path -LiteralPath $suspendedPending)){Move-Item -LiteralPath $suspendedPending -Destination (Join-Path $DataFolder 'pending-app-update.json') -Force}}
  $ResumeToken=$token
 }
 if($ResumeToken){

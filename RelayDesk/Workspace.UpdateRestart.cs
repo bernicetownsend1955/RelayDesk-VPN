@@ -16,7 +16,7 @@ public partial class Workspace
     {
         var window=Window.GetWindow(this);
         var state=new UpdateResume{Token=token??Guid.NewGuid().ToString("N"),Vpn=session.ProxyRunning,Zapret=session.ZapretRunning,ProfileId=session.ActiveProfile?.Id??"",SelectedProfileId=selected?.Id??"",Hidden=window?.IsVisible==false,Minimized=window?.WindowState==WindowState.Minimized};
-        if(window is MainWindow modern){state.Page=modern.UpdatePage;state.Section=modern.UpdateSection;}
+        if(window is MainWindow modern){state.Page=modern.UpdatePage;state.Section=modern.UpdateSection;state.Draft["SharedTun"]=(modern.SharedTun.IsChecked==true).ToString();state.Draft["SharedSystemProxy"]=(modern.SharedSystemProxy.IsChecked==true).ToString();state.Draft["SharedPort"]=modern.SharedPort.Text;}
         if(HasChanges())
         {
             foreach(var name in draftTextFields)state.Draft[name]=((TextBox)FindName(name)).Text;

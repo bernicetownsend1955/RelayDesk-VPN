@@ -37,6 +37,7 @@ public class Preferences
     public bool TrayEnabled { get; set; } = true;
     public int ModernUiVersion { get; set; }
     public List<QuickRoute>? SharedQuickRoutes { get; set; }
+    public ConnectionSettings? Connection {get;set;}
     public string LastConnectedProfileId { get; set; } = "";
     public List<SubscriptionSource> Subscriptions { get; set; } = new();
     public List<string> SubscriptionGroups { get; set; } = new();

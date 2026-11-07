@@ -5,7 +5,7 @@ $folder=Join-Path $env:TEMP ('RelayDesk-modern-smoke-'+[guid]::NewGuid().ToStrin
 New-Item -ItemType Directory -Path $folder | Out-Null
 [IO.File]::WriteAllText((Join-Path $folder 'settings.json'),'{"QuietMode":false,"CheckComponentUpdates":false,"TrayEnabled":false}')
 if($CheckTun){
- $profiles=@(@{Id=[guid]::NewGuid().ToString('N');Name='QA profile';Core='sing-box';Config='{"inbounds":[{"type":"tun","tag":"qa-tun"}]}';Managed=$false;Tun=$false})
+ $profiles=@(@{Id=[guid]::NewGuid().ToString('N');Name='QA profile';Core='sing-box';Config='{"inbounds":[{"type":"tun","tag":"qa-tun","auto_route":true}]}';Managed=$false;Tun=$false})
  [IO.File]::WriteAllText((Join-Path $folder 'profiles.json'),(ConvertTo-Json -InputObject $profiles -Depth 8))
 }
 $start=New-Object Diagnostics.ProcessStartInfo
@@ -59,7 +59,7 @@ try {
  'PASS parameter forms keep modern sidebar'
  if($CheckTun){
   $tun=Find 'TUN: подключать приложения без настройки прокси'
-  if($tun.Current.IsEnabled -or $tun.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On){throw 'Raw TUN state incorrect'}
+  if(!$tun.Current.IsEnabled -or $tun.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On){throw 'Shared TUN state incorrect'}
   Invoke 'Настроить TUN в JSON'
   $condition=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::AutomationIdProperty,'ConfigEditor')
   if(!$window.FindFirst([System.Windows.Automation.TreeScope]::Descendants,$condition)){throw 'TUN did not open JSON editor'}

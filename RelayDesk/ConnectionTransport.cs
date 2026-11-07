@@ -16,7 +16,7 @@ public static class ConnectionTransport
     }
     public static string Planned(Profile profile,Preferences settings,ConnectionMode mode)
     {
-        try{return Describe(profile,RuntimePolicy.Config(profile,settings,mode));}
+        try{return Describe(SharedConnection.Effective(profile,settings),RuntimePolicy.Config(profile,settings,mode));}
         catch{return "Проверь параметры профиля";}
     }
 }

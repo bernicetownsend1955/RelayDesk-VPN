@@ -201,6 +201,25 @@ static class Program
             var alternate=SharedRouting.Copy(sharedCopy);alternate.Config=alternate.Config.Replace("\"proxy\"","\"other-proxy\"");
             var remapped=SharedRouting.ForProfile(alternate,backend.ModernStore.Settings);
             Check(remapped.First(r=>!r.Direct).Outbound=="other-proxy","Common VPN route resolves to the destination profile outbound tag");
+            var originalCommon=backend.ModernStore.Settings.Connection!;
+            backend.ModernSaveConnection(true,true,37555);
+            var commonReload=new Store(folder).Settings.Connection!;
+            Check(commonReload.Tun&&commonReload.SystemProxy&&commonReload.LocalPort==37555,"Shared network mode persists independently from individual server profiles");
+            foreach(var target in backend.ModernStore.Profiles)
+            {
+                var effectiveProfile=SharedConnection.Effective(target,backend.ModernStore.Settings);
+                var effectiveConfig=JsonTools.Object(RuntimePolicy.Config(target,backend.ModernStore.Settings,ConnectionMode.VpnOnly));
+                Check(effectiveProfile.SystemProxy&&JsonTools.LocalProxy(effectiveProfile).Port==37555&&effectiveConfig["inbounds"]!.AsArray().Any(i=>JsonTools.Text(i?["type"])=="tun"),"Raw and subscription profiles share TUN, system proxy and listener port: "+target.Core);
+            }
+            backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));
+            ((CheckBox)backend.FindName("SystemProxy")).IsChecked=false;((TextBox)backend.FindName("ProxyAddress")).Text="http://127.0.0.1:37556";Call(backend,"SaveFields");
+            var fromOther=SharedConnection.Effective(backend.ModernStore.Profiles.Single(p=>p.Id==imported.Id),backend.ModernStore.Settings);
+            Check(!fromOther.SystemProxy&&JsonTools.LocalProxy(fromOther).Port==37556,"Editing connection fields in another profile changes the common mode for subscriptions");
+            backend.ModernSaveConnection(originalCommon.Tun,originalCommon.SystemProxy,originalCommon.LocalPort);
+            var networkMigration=new Store(Path.Combine(folder,"network-migration"));
+            networkMigration.Profiles.Add(new(){Name="Мой VPN",ProxyUri="http://127.0.0.1:37418",Config="{\"inbounds\":[{\"type\":\"mixed\",\"listen_port\":37418,\"set_system_proxy\":true},{\"type\":\"tun\",\"auto_route\":true}],\"outbounds\":[{\"type\":\"direct\"}]}"});
+            SharedConnection.Migrate(networkMigration);
+            Check(networkMigration.Settings.Connection==new ConnectionSettings(true,true,37418),"My VPN JSON seeds both TUN and embedded system proxy plus port 37418");
             var address=TunRuntime.SelectAddress(["172.19.0.1/30","172.30.0.0/16","172.29.240.0/24"]);
             Check(!address.StartsWith("172.30.")&&!address.StartsWith("172.29.240."),"TUN allocator avoids occupied interface and routed subnets");
             var tunSource="{\"inbounds\":[{\"type\":\"tun\",\"tag\":\"relay-tun\",\"interface_name\":\"happ-xray\",\"address\":[\"172.19.0.1/30\",\"fd00::1/126\"],\"auto_route\":true},{\"type\":\"tun\",\"tag\":\"second\",\"address\":[\"172.19.0.1/30\"]}]}";

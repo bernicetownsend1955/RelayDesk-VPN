@@ -5,12 +5,26 @@ namespace RelayDesk;
 
 public partial class MainWindow
 {
+    void LoadSharedConnection()
+    {
+        var common=backend.ModernStore.Settings.Connection;
+        if(common==null)return;
+        SharedTun.IsChecked=common.Tun;SharedSystemProxy.IsChecked=common.SystemProxy;SharedPort.Text=common.LocalPort.ToString();
+    }
+    void SaveSharedConnection(object sender,RoutedEventArgs e)
+    {
+        try{backend.ModernSaveConnection(SharedTun.IsChecked==true,SharedSystemProxy.IsChecked==true,JsonTools.Port(SharedPort.Text.Trim()));RefreshFromBackend();SharedConnectionMessage.Text="Общий режим сохранён для всех профилей. Для работающего VPN нажми «Применить правила».";}
+        catch(Exception ex){SharedConnectionMessage.Text=ex.Message;}
+    }
     public int UpdatePage=>currentPage;
     public int UpdateSection=>AdvancedHost.Visibility==Visibility.Visible?AdvancedSection.SelectedIndex:-1;
     public void RestoreUpdateView(UpdateResume state)
     {
         SelectPage(Math.Clamp(state.Page,0,4));
         if(state.Section>=0&&state.Section<AdvancedTabs.Length)ShowAdvanced(AdvancedTabs[state.Section]);
+        if(state.Draft.TryGetValue("SharedTun",out var tun))SharedTun.IsChecked=bool.Parse(tun);
+        if(state.Draft.TryGetValue("SharedSystemProxy",out var proxy))SharedSystemProxy.IsChecked=bool.Parse(proxy);
+        if(state.Draft.TryGetValue("SharedPort",out var port))SharedPort.Text=port;
         if(state.Hidden&&backend.ModernStore.Settings.TrayEnabled)HideToTray();
         else if(state.Minimized)WindowState=WindowState.Minimized;
         RefreshFromBackend();

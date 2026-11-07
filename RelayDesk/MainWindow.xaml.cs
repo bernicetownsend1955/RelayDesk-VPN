@@ -59,6 +59,7 @@ public partial class MainWindow : Window
         initialized=true;RefreshFromBackend();SelectPage(0);
         InitializeConnectionFilters();
         LoadZapretStrategies();
+        LoadSharedConnection();
         refresh.Tick+=(_,_)=>RefreshFromBackend();
         Closed+=(_,_)=>{leaving=true;refresh.Stop();lifetime.Cancel();};
     }
@@ -141,6 +142,7 @@ public partial class MainWindow : Window
     void Navigate(object sender,RoutedEventArgs e){if(sender is Button b&&int.TryParse(b.Tag?.ToString(),out int i))SelectPage(i);}
     void SelectPage(int index)
     {
+        if(index==3)LoadSharedConnection();
         AdvancedHost.Visibility=Visibility.Collapsed;Scroller.Visibility=Visibility.Visible;
         currentPage=index;var pages=new[]{HomePage,ProfilesPage,AppsPage,SettingsPage,ConnectionsPage};for(int i=0;i<pages.Length;i++)pages[i].Visibility=i==index?Visibility.Visible:Visibility.Collapsed;
         foreach(var b in Navigation.Children.OfType<Button>()){bool active=b.Tag?.ToString()==index.ToString();b.Background=new SolidColorBrush(active?Color.FromArgb(22,230,235,245):Colors.Transparent);b.BorderBrush=new SolidColorBrush(active?Color.FromArgb(35,230,235,245):Colors.Transparent);}

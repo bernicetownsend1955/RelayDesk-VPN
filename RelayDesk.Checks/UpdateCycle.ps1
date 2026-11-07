@@ -41,12 +41,14 @@ try {
  $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
  Wait-For {Listening} 'Loopback core failed to start'
  'PASS isolated VPN core started without TUN or system proxy'
+ [IO.File]::WriteAllText((Join-Path $data 'pending-app-update.json'),'{"fixture":"pending update must not start during manual installation"}')
  $args=@('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/NOLAUNCH=1',('/DIR="'+$installed+'"'),('/QAPID='+$first.Id),('/QADATA="'+$data+'"'),('/LOG="'+(Join-Path $root 'install.log')+'"'))
  $setupProcess=Start-Process -FilePath (Resolve-Path -LiteralPath $Setup).Path -ArgumentList $args -PassThru
  Wait-For {$setupProcess.Refresh();$setupProcess.HasExited} 'QA installation did not finish'
  if($setupProcess.ExitCode -ne 0){throw ('QA installer failed '+$setupProcess.ExitCode)}
  $first.Refresh();if(!$first.HasExited){throw 'Installer replaced files without closing QA app'}
  if(Listening){throw 'Old owned core remained after installer shutdown'}
+ if(!(Test-Path -LiteralPath (Join-Path $data 'pending-app-update.json'))){throw 'Queued update metadata was lost'}
  $state=Get-Content -LiteralPath (Join-Path $data 'update-resume.json') -Raw | ConvertFrom-Json
  if(!$state.Vpn -or $state.Zapret -or $state.ProfileId -ne $profileId){throw 'Installer lost active component state'}
  'PASS installer closed app and core, captured selected VPN, and replaced locked files'
