@@ -7,12 +7,13 @@ if($ResumeToken -and $ResumeToken -notmatch '^[a-fA-F0-9]{32}$'){throw 'Invalid 
 if($ResultFile){[IO.File]::WriteAllText($ResultFile,'')}
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $sessionId=(Get-Process -Id $PID).SessionId
-$apps=@(Get-CimInstance Win32_Process -Filter "Name='RelayDesk.exe'" | Where-Object {
- if($OnlyProcessId -and $_.ProcessId -ne $OnlyProcessId){return $false}
+$ownedApps=@(Get-CimInstance Win32_Process -Filter "Name='RelayDesk.exe'" | Where-Object {
  if($_.SessionId -ne $sessionId){return $false}
  $owner=Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid
  return $owner.Sid -eq $identity
 })
+$overlayHosts=@($ownedApps | Where-Object {$_.CommandLine -match '(?i)(?:^|\s)--overlay-host(?:\s|$)' -and (!$OnlyProcessId -or $_.ParentProcessId -eq $OnlyProcessId)})
+$apps=@($ownedApps | Where-Object {$_.CommandLine -notmatch '(?i)(?:^|\s)--overlay-host(?:\s|$)' -and (!$OnlyProcessId -or $_.ProcessId -eq $OnlyProcessId)})
 foreach($app in $apps){
  $suspendedPending=''
  $token=[guid]::NewGuid().ToString('N')
@@ -70,6 +71,13 @@ public static class RelayDeskCloseWindow {
   }
  } finally {if($suspendedPending -and (Test-Path -LiteralPath $suspendedPending)){Move-Item -LiteralPath $suspendedPending -Destination (Join-Path $DataFolder 'pending-app-update.json') -Force}}
  $ResumeToken=$token
+}
+foreach($hostProcess in $overlayHosts){
+ $deadline=[DateTime]::UtcNow.AddSeconds(15)
+ while(Get-Process -Id $hostProcess.ProcessId -ErrorAction SilentlyContinue){
+  if([DateTime]::UtcNow -gt $deadline){throw 'Overlay did not close with its application; files have not been replaced'}
+  Start-Sleep -Milliseconds 100
+ }
 }
 if($ResumeToken){
  if(!(Test-Path -LiteralPath $resumePath)){throw 'Restart snapshot missing'}

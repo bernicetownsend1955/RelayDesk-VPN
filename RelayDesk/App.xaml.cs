@@ -10,10 +10,12 @@ namespace RelayDesk;
 public partial class App : Application
 {
     private Mutex? instance;
+    bool overlayHost;
     public static bool WindowsStartupLaunch { get; private set; }
     public static string UpdateResumeToken {get;private set;}="";
     protected override void OnStartup(StartupEventArgs e)
     {
+        if(e.Args.FirstOrDefault()=="--overlay-host"){overlayHost=true;ShutdownMode=ShutdownMode.OnExplicitShutdown;_=OverlayBridge.Host(e.Args);return;}
         WindowsStartupLaunch = e.Args.Contains("--windows-startup", StringComparer.Ordinal);
         int resumeIndex=Array.IndexOf(e.Args,"--resume-update");
         if(resumeIndex>=0&&resumeIndex+1<e.Args.Length)UpdateResumeToken=e.Args[resumeIndex+1];
@@ -47,7 +49,8 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += (_, error) => ProgramJournal.Write(error.ExceptionObject.ToString() ?? "Unhandled exception", "crash");
         TaskScheduler.UnobservedTaskException += (_, error) => ProgramJournal.Write(error.Exception.ToString(), "task");
         base.OnStartup(e);
+        MainWindow=new MainWindow();MainWindow.Show();
     }
-    protected override void OnExit(ExitEventArgs e) { ProgramJournal.Write("Приложение закрыто.", "lifecycle"); instance?.Dispose(); base.OnExit(e); }
+    protected override void OnExit(ExitEventArgs e) { if(!overlayHost)ProgramJournal.Write("Приложение закрыто.", "lifecycle"); instance?.Dispose(); base.OnExit(e); }
 }
 

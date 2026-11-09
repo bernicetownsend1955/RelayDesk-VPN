@@ -5,7 +5,7 @@ using System.Windows.Threading;
 namespace RelayDesk;
 public partial class MainWindow
 {
-    TrafficOverlayWindow? trafficOverlay;
+    ITrafficOverlay? trafficOverlay;
     readonly VpnTrafficReader trafficReader=new();
     readonly TrafficMeter trafficMeter=new();
     readonly DispatcherTimer trafficTimer=new(){Interval=TimeSpan.FromMilliseconds(500)};
@@ -37,11 +37,16 @@ public partial class MainWindow
         if(!backend.ModernStore.Settings.TrafficOverlay){trafficTimer.Stop();trafficOverlay?.Close();trafficOverlay=null;trafficPid=0;trafficMeter.Reset();return;}
         if(trafficOverlay==null)
         {
-            trafficOverlay=new TrafficOverlayWindow((x,y)=>
+            void Moved(double x,double y)
             {
                 var p=backend.ModernStore.Settings;p.OverlayLeft=x;p.OverlayTop=y;p.OverlayCorner="custom";
                 loadingOverlay=true;OverlayCorner.SelectedIndex=4;loadingOverlay=false;Save();
-            },()=>{ShowFromTray();SelectPage(3);OverlayChoice.BringIntoView();},()=>OverlayChoice.IsChecked=false);
+            }
+            void Settings(){ShowFromTray();SelectPage(3);OverlayChoice.BringIntoView();}
+            void Hide()=>OverlayChoice.IsChecked=false;
+            void Scan()=>ReadQrScreen(this,new RoutedEventArgs());
+            bool inline=Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR")!=null&&Environment.GetEnvironmentVariable("RELAYDESK_INLINE_OVERLAY")=="1";
+            trafficOverlay=inline?new TrafficOverlayWindow(Moved,Settings,Hide,HandleOverlayDrop,Scan):new OverlayBridge(Moved,Settings,Hide,HandleOverlayDrop,Toast,Scan);
             trafficOverlay.Configure(backend.ModernStore.Settings);trafficOverlay.Show();
         }
         trafficOverlay.Configure(backend.ModernStore.Settings);trafficOverlay.Place(backend.ModernStore.Settings);trafficTimer.Start();

@@ -7,13 +7,13 @@ using System.Windows.Media;
 using Forms=System.Windows.Forms;
 
 namespace RelayDesk;
-public sealed class TrafficOverlayWindow:Window
+public sealed class TrafficOverlayWindow:Window,ITrafficOverlay
 {
     readonly TextBlock name=new(){FontWeight=FontWeights.SemiBold,TextTrimming=TextTrimming.CharacterEllipsis,TextWrapping=TextWrapping.NoWrap};
     readonly TextBlock download=new(),upload=new();
     readonly AsciiSharksBackdrop sharks=new(){TransparentBackground=true,CompactScene=true,ClipToBounds=true,Visibility=Visibility.Collapsed};
     readonly Action<double,double> moved;
-    public TrafficOverlayWindow(Action<double,double> moved,Action settings,Action hide)
+    public TrafficOverlayWindow(Action<double,double> moved,Action settings,Action hide,Action<OverlayDrop>? dropped=null,Action? scanQr=null)
     {
         this.moved=moved;Title="RelayDesk · Скорость VPN";WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;AllowsTransparency=true;Background=Brushes.Transparent;Topmost=true;ShowInTaskbar=false;ShowActivated=false;SizeToContent=SizeToContent.Height;Width=244;
         Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/ModernTheme.xaml")});
@@ -21,8 +21,14 @@ public sealed class TrafficOverlayWindow:Window
         var panel=new StackPanel();name.Margin=new Thickness(0,0,0,8);panel.Children.Add(name);panel.Children.Add(download);panel.Children.Add(upload);
         panel.Margin=new Thickness(14,12,14,12);
         var canvas=new Grid{Background=Brushes.Transparent,ClipToBounds=true};canvas.Children.Add(sharks);canvas.Children.Add(panel);Content=canvas;
+        AllowDrop=true;
+        DragEnter+=(_,_)=>canvas.Background=new SolidColorBrush(Color.FromArgb(28,255,255,255));
+        DragLeave+=(_,_)=>canvas.Background=Brushes.Transparent;
+        DragOver+=(_,e)=>{e.Effects=e.Data.GetDataPresent(DataFormats.FileDrop)||e.Data.GetDataPresent(DataFormats.UnicodeText)||e.Data.GetDataPresent(DataFormats.Text)?DragDropEffects.Copy:DragDropEffects.None;e.Handled=true;};
+        Drop+=(_,e)=>{canvas.Background=Brushes.Transparent;try{var data=OverlayDrops.Read(e.Data);Dispatcher.BeginInvoke(()=>dropped?.Invoke(data));}catch(Exception ex){ToolTip=ex.Message;}e.Handled=true;};
         MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2){settings();return;}DragMove();EnsureOnScreen();moved(Left,Top);};
         var menu=new ContextMenu();var configure=new MenuItem{Header="Настроить оверлей"};configure.Click+=(_,_)=>settings();var close=new MenuItem{Header="Скрыть оверлей"};close.Click+=(_,_)=>hide();menu.Items.Add(configure);menu.Items.Add(close);ContextMenu=menu;
+        if(scanQr!=null){var scan=new MenuItem{Header="Считать QR-код с экрана"};scan.Click+=(_,_)=>scanQr();menu.Items.Insert(0,scan);}
         SourceInitialized+=(_,_)=>{var handle=new WindowInteropHelper(this).Handle;var style=GetWindowLong(handle,-20);SetWindowLong(handle,-20,style|0x08000000|0x80);};
         Closed+=(_,_)=>sharks.AnimationEnabled=false;
         Update("VPN выключен",null,"Включи VPN в RelayDesk.");

@@ -12,7 +12,8 @@ $start=New-Object Diagnostics.ProcessStartInfo
 $start.FileName=(Resolve-Path -LiteralPath $Executable).Path;$start.UseShellExecute=$false;$start.EnvironmentVariables['RELAYDESK_DATA_DIR']=$folder
 $process=[Diagnostics.Process]::Start($start)
 try {
- Start-Sleep -Seconds 2;$process.Refresh()
+ $deadline=[DateTime]::UtcNow.AddSeconds(30)
+ do {Start-Sleep -Milliseconds 100;$process.Refresh()} while(!$process.HasExited -and $process.MainWindowHandle -eq [IntPtr]::Zero -and [DateTime]::UtcNow -lt $deadline)
  if($process.HasExited -or $process.MainWindowHandle -eq [IntPtr]::Zero){throw 'Missing owned application window'}
  $window=[System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
  if($window.Current.ProcessId -ne $process.Id){throw 'Incorrect window owner'}

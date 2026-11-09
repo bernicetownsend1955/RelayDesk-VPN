@@ -26,14 +26,85 @@ static class Program
     }
     static void Dialog(MainWindow window,string button,Type type)
     {
-        bool seen=false;var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(100)};
-        timer.Tick+=(_,_)=>{var dialog=Application.Current.Windows.OfType<Window>().FirstOrDefault(w=>w!=window&&type.IsInstanceOfType(w));if(dialog!=null){seen=dialog.Owner==window;dialog.Close();timer.Stop();}};
+        bool seen=false;Exception? renderError=null;var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(100)};
+        timer.Tick+=(_,_)=>
+        {
+            var dialog=Application.Current.Windows.OfType<Window>().FirstOrDefault(w=>w!=window&&type.IsInstanceOfType(w));if(dialog==null)return;
+            seen=dialog.Owner==window;
+            try
+            {
+                if(dialog is QrShareWindow)
+                {
+                    dialog.UpdateLayout();var bitmap=new System.Windows.Media.Imaging.RenderTargetBitmap((int)dialog.ActualWidth,(int)dialog.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);bitmap.Render(dialog);
+                    var encoder=new System.Windows.Media.Imaging.PngBitmapEncoder();encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(bitmap));using var stream=File.Create(Path.Combine("RelayDesk.ModernChecks","qr-share.png"));encoder.Save(stream);
+                    var qrImage=Visual<Image>(dialog).Single();var point=qrImage.TranslatePoint(new Point(),dialog);var crop=new System.Windows.Media.Imaging.CroppedBitmap(bitmap,new Int32Rect((int)point.X,(int)point.Y,(int)qrImage.ActualWidth,(int)qrImage.ActualHeight));
+                    var next=Visual<Button>(dialog).First(b=>b.Content?.ToString()=="Назад").TranslatePoint(new Point(),dialog);
+                    Check(point.Y+qrImage.ActualHeight<=next.Y&&QrImages.Decode(crop).Length>0,"QR preview remains completely visible and readable inside share dialog");
+                }
+            }
+            catch(Exception ex){renderError=ex;}
+            finally{dialog.Close();timer.Stop();}
+        };
         timer.Start();try{Click(window,button);}finally{timer.Stop();}
+        if(renderError!=null)throw new Exception("QR dialog render failed",renderError);
         Check(seen,button+" opens owned dialog and cancellation preserves modern shell");
+    }
+    static void QrChecks(MainWindow window,Workspace backend,string folder)
+    {
+        const string link="vless://00000000-0000-4000-8000-000000000001@vpn.example.org:443?security=none&type=tcp#QR";
+        var qr=QrImages.Encode(link);Check(QrImages.Decode(qr)==link,"QR encoder and decoder retain an ordinary VLESS link");
+        var qrFile=Path.Combine(folder,"fixture-qr.png");QrImages.Save(qr,qrFile);Check(QrImages.Decode(QrImages.Load(qrFile))==link,"Saved PNG imports through actual image decoder");
+        var mutable=new System.Windows.Media.Imaging.WriteableBitmap(qr);var prepared=QrImages.PrepareForDecode(mutable);Check(prepared.IsFrozen&&!mutable.IsFrozen,"Clipboard-like bitmap is detached without changing source ownership");
+        Check(Task.Run(()=>QrImages.Decode(prepared)).GetAwaiter().GetResult()==link,"Detached clipboard image decodes on worker thread without WPF affinity errors");
+        var profile=SharedRouting.Copy(backend.ModernProfile!);profile.Executable="C:\\private\\core.exe";profile.SubscriptionId="private-subscription-id";
+        var share=QrShare.Create(profile,backend.ModernStore.Settings,true);var decoded=QrShare.Decode(share.Encode());
+        Check(decoded.Profile!.Config==profile.Config&&decoded.Profile.Executable.Length==0&&decoded.Profile.SubscriptionId.Length==0&&decoded.Profile.Id!=profile.Id&&decoded.Settings!=null,"QR share retains profile config and common settings while omitting engine path and source subscription identity");
+        Check(QrShare.Decode(QrShare.Create(profile,backend.ModernStore.Settings,false).Encode()).Settings==null,"Profile sharing does not include common rules unless selected");
+        var large=Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(4500));var parts=QrParts.Split(large);var collector=new QrParts();string? collected=null;
+        foreach(var part in parts.Reverse()){var read=collector.Accept(QrImages.Decode(QrImages.Encode(part)));collected=read.Text;if(read.Read<read.Total)Check(read.Text==null,"Incomplete QR parts cannot produce an import payload");}
+        Check(collected==large,"Multiple QR images assemble in reverse order with checksum verification");
+        var bad=parts.ToArray();bad[0]=bad[0][..^1]+(bad[0][^1]=='A'?'B':'A');var invalid=new QrParts();bool rejected=false;try{foreach(var part in bad)invalid.Accept(part);}catch(FormatException){rejected=true;}Check(rejected,"Tampered QR packet is rejected before import");
+        var exe=Environment.ProcessPath!;var appRule=OverlayDrops.Rule(exe);Check(appRule.Kind=="process_path"&&appRule.Value==exe,"Dropping an executable resolves a process rule without launching it");
+        var siteRule=OverlayDrops.Rule("https://example.org/path?test=1");Check(siteRule.Kind=="domain_suffix"&&siteRule.Value=="example.org","Dropped browser link becomes domain rule rather than a path or query rule");
+        var shortcutPath=Path.Combine(folder,"fixture.lnk");object? shell=null,shortcut=null;
+        try{shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell")!);shortcut=shell!.GetType().InvokeMember("CreateShortcut",BindingFlags.InvokeMethod,null,shell,[shortcutPath]);shortcut!.GetType().InvokeMember("TargetPath",BindingFlags.SetProperty,null,shortcut,[exe]);shortcut.GetType().InvokeMember("Save",BindingFlags.InvokeMethod,null,shortcut,null);}
+        finally{if(shortcut!=null)System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shortcut);if(shell!=null)System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell);}
+        Check(OverlayDrops.Rule(shortcutPath).Value==exe,"Dropped Windows shortcut resolves its EXE without running shortcut arguments");
+        var urlShortcut=Path.Combine(folder,"fixture.url");File.WriteAllText(urlShortcut,"[InternetShortcut]\nURL=https://example.org/path\n");Check(OverlayDrops.Rule(urlShortcut).Value=="example.org","Dropped Internet shortcut resolves site domain");
+        var profilesBefore=File.ReadAllText(Path.Combine(folder,"profiles.json"));var settingsBefore=File.ReadAllText(Path.Combine(folder,"settings.json"));
+        Dialog(window,"Поделиться QR",typeof(QrShareWindow));Check(File.ReadAllText(Path.Combine(folder,"profiles.json"))==profilesBefore&&File.ReadAllText(Path.Combine(folder,"settings.json"))==settingsBefore,"Viewing and closing QR share never modifies profiles or settings");
+        var timer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(100)};bool preview=false;
+        timer.Tick+=(_,_)=>{var dialog=Application.Current.Windows.OfType<ThemedWindow>().FirstOrDefault(w=>w.Title=="Предпросмотр QR-пакета");if(dialog!=null){preview=true;dialog.Close();timer.Stop();}};timer.Start();
+        try{var task=(Task)Call(window,"AcceptQrText",share.Encode())!;Wait(()=>task.IsCompleted);}finally{timer.Stop();}
+        Check(preview&&File.ReadAllText(Path.Combine(folder,"profiles.json"))==profilesBefore&&File.ReadAllText(Path.Combine(folder,"settings.json"))==settingsBefore,"Cancelling QR import preview preserves all profile and settings files");
+        var screenImage=new Image{Source=qr,Width=420,Height=420,Margin=new Thickness(20)};
+        var qrWindow=new Window{Title="QR screen fixture",Content=screenImage,Width=480,Height=500,Background=System.Windows.Media.Brushes.White,Topmost=true,ShowInTaskbar=false,ShowActivated=false,WindowStartupLocation=WindowStartupLocation.CenterScreen};
+        try
+        {
+            qrWindow.Show();qrWindow.UpdateLayout();Pump(300);var capture=new QrScreenWindow();
+            try{var screenshot=(System.Windows.Media.Imaging.BitmapSource)typeof(QrScreenWindow).GetField("screenshot",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(capture)!;var start=screenImage.PointToScreen(new Point());var end=screenImage.PointToScreen(new Point(screenImage.ActualWidth,screenImage.ActualHeight));var bounds=System.Windows.Forms.SystemInformation.VirtualScreen;var crop=new System.Windows.Media.Imaging.CroppedBitmap(screenshot,new Int32Rect((int)start.X-bounds.Left,(int)start.Y-bounds.Top,(int)(end.X-start.X),(int)(end.Y-start.Y)));Check(QrImages.Decode(crop)==link,"QR reader decodes pixels captured from an actual on-screen window");}finally{capture.Close();}
+        }
+        finally{qrWindow.Close();}
+        string? bridgeError=null;var bridge=new OverlayBridge((_,_)=>{},()=>{},()=>{},_=>{},s=>bridgeError=s,()=>{});bridge.Configure(new Preferences());bridge.Place(new Preferences());bridge.Update("IPC QA connection",new TrafficRate(2.5,1.25),"Fixture");bridge.Show();
+        int pid=0;bool connected=false;
+        try
+        {
+            Wait(()=>{var child=(System.Diagnostics.Process?)typeof(OverlayBridge).GetField("child",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(bridge);if(child==null)return false;pid=child.Id;connected=bridge.DisplayedName=="IPC QA connection";return connected||bridgeError!=null;});
+            Check(connected&&pid>0&&pid!=Environment.ProcessId&&bridgeError==null,"Separate overlay host connects over private local IPC without starting main app: "+bridgeError);
+            Pump(400);Check(File.ReadAllText(Path.Combine(folder,"profiles.json"))==profilesBefore&&File.ReadAllText(Path.Combine(folder,"settings.json"))==settingsBefore,"Overlay worker never loads or saves VPN profiles");
+        }
+        finally{bridge.Close();}
+        bool Alive(){try{using var p=System.Diagnostics.Process.GetProcessById(pid);return !p.HasExited;}catch(ArgumentException){return false;}}
+        Wait(()=>!Alive());Check(!Alive(),"Closing overlay bridge shuts down only its own worker process");
+        var savedConnection=backend.ModernStore.Settings.Connection;var savedRules=backend.ModernStore.Settings.SharedQuickRoutes;var savedFallback=backend.ModernStore.Settings.FallbackRoute;var savedPreset=backend.ModernStore.Settings.RoutingPreset;var oldProfileIds=backend.ModernStore.Profiles.Select(p=>p.Id).ToHashSet();
+        backend.ModernAcceptShare(decoded);var added=backend.ModernStore.Profiles.Single(p=>!oldProfileIds.Contains(p.Id));
+        Check(added.Config==profile.Config&&added.Executable.Length==0&&!backend.ModernSession.ProxyRunning,"Confirmed QR import creates a new profile without starting its engine");
+        Check(Directory.GetDirectories(Path.Combine(folder,"backups"),"before-qr-*").Length>0,"Confirmed QR import preserves a backup before writing settings");
+        backend.ModernStore.Profiles.Remove(added);backend.ModernStore.Settings.Connection=savedConnection;backend.ModernStore.Settings.SharedQuickRoutes=savedRules;backend.ModernStore.Settings.FallbackRoute=savedFallback;backend.ModernStore.Settings.RoutingPreset=savedPreset;backend.ModernStore.Save();
     }
     [STAThread]static int Main()
     {
-        string folder=Path.Combine(Path.GetTempPath(),"RelayDesk-production-QA-"+Guid.NewGuid().ToString("N"));Environment.SetEnvironmentVariable("RELAYDESK_DATA_DIR",folder);
+        string folder=Path.Combine(Path.GetTempPath(),"RelayDesk-production-QA-"+Guid.NewGuid().ToString("N"));Environment.SetEnvironmentVariable("RELAYDESK_DATA_DIR",folder);Environment.SetEnvironmentVariable("RELAYDESK_INLINE_OVERLAY","1");
         var fixture=new Store(folder);
         var profile=new Profile{Name="Preserved profile",Core="sing-box",Config="{\"log\":{\"level\":\"error\"},\"inbounds\":[{\"type\":\"mixed\",\"listen\":\"127.0.0.1\",\"listen_port\":32199}],\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"},{\"type\":\"socks\",\"tag\":\"proxy\",\"server\":\"127.0.0.1\",\"server_port\":32200}],\"route\":{\"final\":\"proxy\"}}",SubscriptionGroup="Private group",QuickRoutes=[new("domain_suffix","example.org","proxy")]};
         fixture.Profiles.Add(profile);fixture.Settings.LastConnectedProfileId=profile.Id;fixture.Settings.Subscriptions.Add(new(){Url="https://example.com/private-subscription",Group="Private group"});
@@ -340,6 +411,7 @@ static class Program
             Check(RuntimePolicy.ZapretRoutes(backend.ModernProfile,backend.ModernStore.Settings,ConnectionMode.Combined).Count==0&&JsonTools.Text(JsonTools.Object(RuntimePolicy.Config(backend.ModernProfile!,backend.ModernStore.Settings,ConnectionMode.Combined))["route"]?["final"])=="proxy","Forced VPN preset temporarily overrides saved zapret fallback");
             backend.ModernStore.Settings.RoutingPreset="rules";backend.ModernSaveFallback("source");Call(window,"LoadProfileRules");
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
+            Call(window,"SelectPage",1);QrChecks(window,backend,folder);
             Call(window,"SelectPage",3);
             var editor=(TextBox)backend.FindName("ConfigEditor");var profileName=(TextBox)backend.FindName("ProfileName");
             string savedEditor=editor.Text,savedName=profileName.Text;
