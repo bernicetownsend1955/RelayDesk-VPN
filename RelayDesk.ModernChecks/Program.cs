@@ -203,7 +203,24 @@ static class Program
             window.WindowState=WindowState.Minimized;Pump();Check(overlay.IsVisible,"Overlay remains visible while main window is minimized");window.WindowState=WindowState.Normal;window.Activate();Pump();
             overlay.Update("QA connection",new TrafficRate(12.34,1.25),"Synthetic UI fixture");overlay.UpdateLayout();
             var overlayImage=new System.Windows.Media.Imaging.RenderTargetBitmap((int)overlay.ActualWidth,(int)overlay.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);overlayImage.Render(overlay);var overlayPng=new System.Windows.Media.Imaging.PngBitmapEncoder();overlayPng.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(overlayImage));using(var overlayStream=File.Create(Path.Combine("RelayDesk.ModernChecks","overlay.png")))overlayPng.Save(overlayStream);
+            byte[] Pixels(System.Windows.Media.Imaging.RenderTargetBitmap image){var bytes=new byte[image.PixelWidth*image.PixelHeight*4];image.CopyPixels(bytes,image.PixelWidth*4,0);return bytes;}
+            var plainPixels=Pixels(overlayImage);
+            Check(plainPixels[3]==0&&Enumerable.Range(0,plainPixels.Length/4).Count(i=>plainPixels[i*4+3]==0)>plainPixels.Length/8,"Overlay has no painted rectangle or border; empty pixels remain transparent");
+            ((CheckBox)window.FindName("OverlaySharks")).IsChecked=true;((Slider)window.FindName("OverlaySharkOpacity")).Value=35;((CheckBox)window.FindName("OverlaySharkMotion")).IsChecked=false;Pump(450);
+            var sharkLayer=Visual<AsciiSharksBackdrop>(overlay).Single();
+            var sharkPrefs=new Store(folder).Settings;
+            Check(sharkPrefs.OverlaySharks&&sharkPrefs.OverlaySharkOpacity==.35&&!sharkPrefs.OverlaySharkMotion&&sharkLayer.TransparentBackground&&!sharkLayer.AnimationEnabled,"ASCII overlay appearance and paused motion persist independently of main background");
+            overlay.Update("QA connection",new TrafficRate(12.34,1.25),"Synthetic UI fixture");overlay.UpdateLayout();
+            var sharkImage=new System.Windows.Media.Imaging.RenderTargetBitmap((int)overlay.ActualWidth,(int)overlay.ActualHeight,96,96,System.Windows.Media.PixelFormats.Pbgra32);sharkImage.Render(overlay);var sharkPixels=Pixels(sharkImage);
+            Check(sharkPixels[3]==0&&Enumerable.Range(0,sharkPixels.Length/4).Count(i=>sharkPixels[i*4+3]>0)>Enumerable.Range(0,plainPixels.Length/4).Count(i=>plainPixels[i*4+3]>0),"ASCII sharks add visible glyphs without an opaque background");
+            var sharkPng=new System.Windows.Media.Imaging.PngBitmapEncoder();sharkPng.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(sharkImage));using(var sharkStream=File.Create(Path.Combine("RelayDesk.ModernChecks","overlay-sharks.png")))sharkPng.Save(sharkStream);
             overlayChoice.IsChecked=false;Pump(450);Check(!app.Windows.OfType<TrafficOverlayWindow>().Any()&&!new Store(folder).Settings.TrafficOverlay,"Disabling overlay closes its window and persists off state");
+            var quietSlider=(Slider)window.FindName("QuietDelay");quietSlider.Value=60;Pump(450);
+            Check(new Store(folder).Settings.QuietDelaySeconds==60&&((TextBlock)window.FindName("QuietDelayLabel")).Text=="60 с","Quiet delay slider persists the chosen timeout and displays seconds");
+            quietChoice.IsChecked=true;
+            void IdleSince(int seconds){foreach(var field in new[]{"lastActivity","awaySince"})typeof(MainWindow).GetField(field,BindingFlags.Instance|BindingFlags.NonPublic)!.SetValue(window,DateTime.UtcNow.AddSeconds(-seconds));}
+            IdleSince(35);Pump(600);Check(((UIElement)window.FindName("QuietOverlay")).Visibility==Visibility.Collapsed,"Quiet timer waits for selected delay beyond former hardcoded 30 seconds");
+            IdleSince(65);Pump(600);Check(((UIElement)window.FindName("QuietOverlay")).Visibility==Visibility.Visible,"Quiet timer fades UI after the selected timeout");Call(window,"WakeQuietMode");quietChoice.IsChecked=false;
             Call(window,"EnterQuietMode");Pump();Check(((UIElement)window.FindName("Shell")).Opacity<.1,"Production quiet mode fades actual HUD");
             var click=new MouseButtonEventArgs(Mouse.PrimaryDevice,Environment.TickCount,MouseButton.Left){RoutedEvent=Mouse.PreviewMouseDownEvent};window.RaiseEvent(click);Check(click.Handled&&((UIElement)window.FindName("QuietOverlay")).Visibility==Visibility.Collapsed,"First click restores production HUD without clicking through");
             Pump();Call(window,"SelectPage",0);Pump();

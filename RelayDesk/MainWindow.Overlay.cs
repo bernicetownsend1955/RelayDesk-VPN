@@ -18,14 +18,16 @@ public partial class MainWindow
         loadingOverlay=true;var p=backend.ModernStore.Settings;
         OverlayCorner.ItemsSource=new[]{"Справа снизу","Слева снизу","Справа сверху","Слева сверху","Свободное положение"};OverlayCorner.SelectedIndex=Math.Max(0,Array.IndexOf(OverlayCorners,p.OverlayCorner));
         OverlayChoice.IsChecked=p.TrafficOverlay;OverlayOpacity.Value=Math.Clamp(p.OverlayOpacity*100,30,100);OverlaySize.Value=Math.Clamp(p.OverlayTextSize,12,24);UpdateOverlayLabels();loadingOverlay=false;
+        loadingOverlay=true;OverlaySharks.IsChecked=p.OverlaySharks;OverlaySharkMotion.IsChecked=p.OverlaySharkMotion;OverlaySharkOpacity.Value=Math.Clamp(p.OverlaySharkOpacity*100,0,100);UpdateOverlayLabels();loadingOverlay=false;
         trafficTimer.Tick+=async(_,_)=>await RefreshTraffic();overlaySaveTimer.Tick+=(_,_)=>{overlaySaveTimer.Stop();Save();};
         Loaded+=(_,_)=>SyncOverlay();Closed+=(_,_)=>{trafficTimer.Stop();if(overlaySaveTimer.IsEnabled)Save();overlaySaveTimer.Stop();trafficOverlay?.Close();trafficOverlay=null;trafficReader.Dispose();};
     }
-    void UpdateOverlayLabels(){OverlayOpacityLabel.Text=OverlayOpacity.Value.ToString("0")+"%";OverlaySizeLabel.Text=OverlaySize.Value.ToString("0");}
+    void UpdateOverlayLabels(){OverlayOpacityLabel.Text=OverlayOpacity.Value.ToString("0")+"%";OverlaySizeLabel.Text=OverlaySize.Value.ToString("0");OverlaySharkOpacityLabel.Text=OverlaySharkOpacity.Value.ToString("0")+"%";}
     void OverlayChanged(object sender,RoutedEventArgs e)
     {
         if(!initialized||loadingOverlay)return;var p=backend.ModernStore.Settings;
         p.TrafficOverlay=OverlayChoice.IsChecked==true;p.OverlayOpacity=OverlayOpacity.Value/100;p.OverlayTextSize=OverlaySize.Value;
+        p.OverlaySharks=OverlaySharks.IsChecked==true;p.OverlaySharkMotion=OverlaySharkMotion.IsChecked==true;p.OverlaySharkOpacity=OverlaySharkOpacity.Value/100;
         p.OverlayCorner=OverlayCorners[Math.Clamp(OverlayCorner.SelectedIndex,0,OverlayCorners.Length-1)];
         UpdateOverlayLabels();SyncOverlay();overlaySaveTimer.Stop();overlaySaveTimer.Start();
     }

@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.29.0</Version>
-    <InformationalVersion>0.29.0-traffic-overlay</InformationalVersion>
+    <Version>0.29.1</Version>
+    <InformationalVersion>0.29.1-overlay-sharks-quiet-delay</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>

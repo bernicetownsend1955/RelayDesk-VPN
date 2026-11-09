@@ -16,6 +16,8 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
     readonly Dictionary<char,ushort> glyphs=[];
     bool animate=true;
     Window? owner;
+    public bool TransparentBackground {get;set;}
+    public bool CompactScene {get;set;}
     public bool AnimationEnabled {get=>animate;set{animate=value;UpdatePlayback();}}
     public AsciiSharksBackdrop()
     {
@@ -75,15 +77,15 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
     {
         base.OnRender(dc);
         if(ActualWidth<1||ActualHeight<1)return;
-        dc.DrawRectangle(Brushes.Black,null,new Rect(0,0,ActualWidth,ActualHeight));
-        const double cellX=5.3,cellY=7.5;
+        if(!TransparentBackground)dc.DrawRectangle(Brushes.Black,null,new Rect(0,0,ActualWidth,ActualHeight));
+        double cellX=CompactScene?3.8:5.3,cellY=CompactScene?5.2:7.5;
         int columns=(int)(ActualWidth/cellX)+1,rows=(int)(ActualHeight/cellY)+1;
         var depth=new float[columns*rows];Array.Fill(depth,float.NegativeInfinity);
         var characters=new char[depth.Length];
         double time=elapsed.Elapsed.TotalSeconds;
         double scene=Math.Min(ActualWidth/1500,ActualHeight/950);
         const string ramp=".,:;irsX#@";
-        for(int shark=0;shark<3;shark++)
+        for(int shark=0;shark<(CompactScene?1:3);shark++)
         {
             double phase=time*Math.Tau/38+shark*Math.Tau/3;
             double centerX=ActualWidth*.52+Math.Cos(phase)*ActualWidth*.38;
@@ -92,6 +94,12 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
             double pitch=.6*Math.Sin(phase*2+shark*.7),roll=.3+Math.Sin(phase+shark)*.65;
             double ch=Math.Cos(heading),sh=Math.Sin(heading),cp=Math.Cos(pitch),sp=Math.Sin(pitch),cr=Math.Cos(roll),sr=Math.Sin(roll);
             double size=(shark==0?190:shark==1?145:170)*scene;
+            if(CompactScene)
+            {
+                centerX=ActualWidth*(.55+Math.Cos(phase)*.06);centerY=ActualHeight*(.5+Math.Sin(phase)*.08);
+                heading=.12+Math.Sin(phase)*.18;ch=Math.Cos(heading);sh=Math.Sin(heading);
+                size=Math.Min(ActualWidth/3.4,ActualHeight/1.8);
+            }
             foreach(var p in mesh)
             {
                 double bend=Math.Max(0,-p.X+.15);
@@ -118,12 +126,12 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
         for(int row=0;row<rows;row++)for(int col=0;col<columns;col++)
         {
             char c=characters[row*columns+col];if(c=='\0')continue;
-            indices.Add(glyphs[c]);advances.Add(0);offsets.Add(new Point(col*cellX,-(row*cellY+7)));
+            indices.Add(glyphs[c]);advances.Add(0);offsets.Add(new Point(col*cellX,-(row*cellY+(CompactScene?5:7))));
         }
         if(indices.Count>0)
         {
             var run=new GlyphRun((float)VisualTreeHelper.GetDpi(this).PixelsPerDip);
-            var init=(System.ComponentModel.ISupportInitialize)run;init.BeginInit();run.GlyphTypeface=font;run.FontRenderingEmSize=8;
+            var init=(System.ComponentModel.ISupportInitialize)run;init.BeginInit();run.GlyphTypeface=font;run.FontRenderingEmSize=CompactScene?6:8;
             run.GlyphIndices=indices;run.AdvanceWidths=advances;run.GlyphOffsets=offsets;run.BaselineOrigin=new Point(0,0);init.EndInit();
             dc.PushClip(new RectangleGeometry(new Rect(0,0,ActualWidth,ActualHeight)));dc.DrawGlyphRun(Brushes.White,run);dc.Pop();
         }

@@ -7,28 +7,39 @@ namespace RelayDesk;
 public partial class MainWindow
 {
     readonly DispatcherTimer quietTimer=new(){Interval=TimeSpan.FromMilliseconds(500)};
+    readonly DispatcherTimer quietSaveTimer=new(){Interval=TimeSpan.FromMilliseconds(350)};
     readonly Stopwatch vpnElapsed=new(),zapretElapsed=new();
     DateTime lastActivity=DateTime.UtcNow,awaySince=DateTime.UtcNow;
     bool quiet,wasVpn,wasZapret;
     void InitializeQuietMode()
     {
         QuietChoice.IsChecked=state.QuietMode;
+        QuietDelay.Value=Math.Clamp(backend.ModernStore.Settings.QuietDelaySeconds,5,300);UpdateQuietDelayLabel();
+        quietSaveTimer.Tick+=(_,_)=>{quietSaveTimer.Stop();Save();};
         PreviewMouseDown+=(_,e)=>{RegisterActivity();if(quiet){WakeQuietMode();e.Handled=true;}};
         PreviewKeyDown+=(_,e)=>{RegisterActivity();if(quiet){WakeQuietMode();e.Handled=true;}};
         PreviewMouseWheel+=(_,e)=>{RegisterActivity();if(quiet){WakeQuietMode();e.Handled=true;}};
         PreviewMouseMove+=(_,_)=>{if(!quiet&&IsActive)RegisterActivity();};
         Activated+=(_,_)=>RegisterActivity();Deactivated+=(_,_)=>awaySince=DateTime.UtcNow;
         Loaded+=(_,_)=>{RegisterActivity();quietTimer.Start();};
-        Closed+=(_,_)=>quietTimer.Stop();
+        Closed+=(_,_)=>{quietTimer.Stop();if(quietSaveTimer.IsEnabled)Save();quietSaveTimer.Stop();};
         quietTimer.Tick+=(_,_)=>
         {
             UpdateConnectionClocks();
             if(!state.QuietMode||rulesDialogOpen||!IsLoaded||WindowState==WindowState.Minimized||vpnBusy||zapretBusy)return;
-            bool inactive=IsActive?(DateTime.UtcNow-lastActivity).TotalSeconds>=30:(DateTime.UtcNow-awaySince).TotalSeconds>=1.5;
+            int delay=Math.Clamp(backend.ModernStore.Settings.QuietDelaySeconds,5,300);
+            bool inactive=IsActive?(DateTime.UtcNow-lastActivity).TotalSeconds>=delay:(DateTime.UtcNow-awaySince).TotalSeconds>=delay;
             if(inactive&&!quiet)EnterQuietMode();
         };
     }
     void RegisterActivity()=>lastActivity=DateTime.UtcNow;
+    void UpdateQuietDelayLabel()=>QuietDelayLabel.Text=QuietDelay.Value.ToString("0")+" с";
+    void QuietDelayChanged(object sender,RoutedPropertyChangedEventArgs<double> e)
+    {
+        if(!initialized)return;
+        backend.ModernStore.Settings.QuietDelaySeconds=(int)QuietDelay.Value;UpdateQuietDelayLabel();WakeQuietMode();awaySince=DateTime.UtcNow;
+        quietSaveTimer.Stop();quietSaveTimer.Start();
+    }
     static string Duration(Stopwatch watch)=>$"{(int)watch.Elapsed.TotalHours:00}:{watch.Elapsed.Minutes:00}:{watch.Elapsed.Seconds:00}";
     void UpdateConnectionClocks()
     {

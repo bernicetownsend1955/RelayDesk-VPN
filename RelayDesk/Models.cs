@@ -34,9 +34,13 @@ public class Preferences
     public bool AsciiBackground { get; set; } = true;
     public bool GraphiteGlass { get; set; } = true;
     public bool QuietMode { get; set; } = true;
+    public int QuietDelaySeconds {get;set;}=30;
     public bool TrafficOverlay {get;set;}
     public double OverlayOpacity {get;set;}=0.8;
     public double OverlayTextSize {get;set;}=16;
+    public bool OverlaySharks {get;set;}
+    public double OverlaySharkOpacity {get;set;}=.2;
+    public bool OverlaySharkMotion {get;set;}=true;
     public string OverlayCorner {get;set;}="bottom-right";
     public double? OverlayLeft {get;set;}
     public double? OverlayTop {get;set;}

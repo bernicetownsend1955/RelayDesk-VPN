@@ -11,6 +11,7 @@ public sealed class TrafficOverlayWindow:Window
 {
     readonly TextBlock name=new(){FontWeight=FontWeights.SemiBold,TextTrimming=TextTrimming.CharacterEllipsis,TextWrapping=TextWrapping.NoWrap};
     readonly TextBlock download=new(),upload=new();
+    readonly AsciiSharksBackdrop sharks=new(){TransparentBackground=true,CompactScene=true,ClipToBounds=true,Visibility=Visibility.Collapsed};
     readonly Action<double,double> moved;
     public TrafficOverlayWindow(Action<double,double> moved,Action settings,Action hide)
     {
@@ -18,10 +19,12 @@ public sealed class TrafficOverlayWindow:Window
         Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/ModernTheme.xaml")});
         FontFamily=new FontFamily("Segoe UI");Foreground=new SolidColorBrush(Color.FromRgb(236,238,242));UseLayoutRounding=true;
         var panel=new StackPanel();name.Margin=new Thickness(0,0,0,8);panel.Children.Add(name);panel.Children.Add(download);panel.Children.Add(upload);
-        Content=new Border{Background=new SolidColorBrush(Color.FromRgb(16,19,24)),BorderBrush=new SolidColorBrush(Color.FromRgb(65,71,81)),BorderThickness=new Thickness(1),CornerRadius=new CornerRadius(8),Padding=new Thickness(14,12,14,12),Child=panel};
+        panel.Margin=new Thickness(14,12,14,12);
+        var canvas=new Grid{Background=Brushes.Transparent,ClipToBounds=true};canvas.Children.Add(sharks);canvas.Children.Add(panel);Content=canvas;
         MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2){settings();return;}DragMove();EnsureOnScreen();moved(Left,Top);};
         var menu=new ContextMenu();var configure=new MenuItem{Header="Настроить оверлей"};configure.Click+=(_,_)=>settings();var close=new MenuItem{Header="Скрыть оверлей"};close.Click+=(_,_)=>hide();menu.Items.Add(configure);menu.Items.Add(close);ContextMenu=menu;
         SourceInitialized+=(_,_)=>{var handle=new WindowInteropHelper(this).Handle;var style=GetWindowLong(handle,-20);SetWindowLong(handle,-20,style|0x08000000|0x80);};
+        Closed+=(_,_)=>sharks.AnimationEnabled=false;
         Update("VPN выключен",null,"Включи VPN в RelayDesk.");
     }
     [System.Runtime.InteropServices.DllImport("user32.dll")]static extern int GetWindowLong(IntPtr handle,int index);
@@ -31,6 +34,9 @@ public sealed class TrafficOverlayWindow:Window
         Opacity=Math.Clamp(double.IsFinite(prefs.OverlayOpacity)?prefs.OverlayOpacity:.8,.3,1);
         double size=Math.Clamp(double.IsFinite(prefs.OverlayTextSize)?prefs.OverlayTextSize:16,12,24);
         name.FontSize=Math.Max(12,size-2);download.FontSize=upload.FontSize=size;Width=Math.Max(220,size*14);
+        sharks.Visibility=prefs.OverlaySharks?Visibility.Visible:Visibility.Collapsed;
+        sharks.Opacity=Math.Clamp(double.IsFinite(prefs.OverlaySharkOpacity)?prefs.OverlaySharkOpacity:.2,0,1);
+        sharks.AnimationEnabled=prefs.OverlaySharkMotion&&SystemParameters.ClientAreaAnimation;
         if(IsLoaded)UpdateLayout();
     }
     Rect WorkArea()
