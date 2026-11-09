@@ -12,6 +12,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     public Process? Zapret { get; private set; }
     public Profile? ActiveProfile { get; private set; }
     public string ActiveTransport { get; private set; } = "";
+    public string ActiveRuntimeConfig {get;private set;}="";
     public Uri? ActiveProxy {get;private set;}
     public event Action? Changed;
     public ConnectionMode Mode { get; private set; }
@@ -173,7 +174,11 @@ public sealed class EngineSession(Store store, Action<string> log)
         var runtime = WriteConfig(p, false, settings, mode);
         if(RuntimePolicy.LegacySubscriptionDns(p))log("Подписка: прежний DNS по умолчанию 1.1.1.1 заменён системным DNS в конфигурации запуска.");
         XrayConnections.Clear();
-        if(p.Core=="Xray") File.WriteAllText(runtime,XrayConnectionHistory.Configure(File.ReadAllText(runtime)));
+        if(p.Core=="Xray")
+        {
+            var listener=new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback,0);listener.Start();var port=((System.Net.IPEndPoint)listener.LocalEndpoint).Port;listener.Stop();
+            File.WriteAllText(runtime,VpnTrafficReader.ConfigureXray(XrayConnectionHistory.Configure(File.ReadAllText(runtime)),port));
+        }
         if (p.Core == "sing-box")
         {
             var configured=TunRuntime.Configure(File.ReadAllText(runtime));
@@ -204,6 +209,7 @@ public sealed class EngineSession(Store store, Action<string> log)
         if (network.SystemProxy) { lease.Apply(proxy); log("Системный прокси включён до отключения VPN."); }
         ActiveProxy=proxy;
         ActiveTransport=ConnectionTransport.Describe(network,File.ReadAllText(runtime));
+        ActiveRuntimeConfig=File.ReadAllText(runtime);
         log($"[{p.Core}] PID {process.Id}"); _ = Observe(process, false);
     }
     async Task StartZapretCore(Preferences settings, ConnectionMode mode, string? strategy = null, IEnumerable<QuickRoute>? routes = null)
@@ -223,7 +229,7 @@ public sealed class EngineSession(Store store, Action<string> log)
             await process.WaitForExitAsync();
             if ((zapret ? Zapret : Proxy) != process) return;
             log($"{(zapret ? "zapret" : "VPN")} завершился: код {process.ExitCode}.");
-            if (zapret) { Zapret = null; ActiveZapretArguments = []; } else { Proxy = null; ActiveProfile = null; ActiveTransport=""; ActiveProxy=null; RestoreProxy(); }
+            if (zapret) { Zapret = null; ActiveZapretArguments = []; } else { Proxy = null; ActiveProfile = null; ActiveTransport=""; ActiveProxy=null; ActiveRuntimeConfig=""; RestoreProxy(); }
             process.Dispose();
             while (busy) await Task.Delay(50);
             // If a transition or shutdown already replaced the sibling, it owns the final state.
@@ -237,7 +243,7 @@ public sealed class EngineSession(Store store, Action<string> log)
     async Task StopOwned()
     {
         var proxy = Proxy; var zapret = Zapret; Proxy = null; Zapret = null; ActiveProfile = null;
-        ActiveTransport="";ActiveProxy=null;
+        ActiveTransport="";ActiveProxy=null;ActiveRuntimeConfig="";
         ActiveZapretArguments = [];
         RestoreProxy();
         try { if (proxy != null) await Kill(proxy); }

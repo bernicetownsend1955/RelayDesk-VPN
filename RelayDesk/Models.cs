@@ -34,6 +34,12 @@ public class Preferences
     public bool AsciiBackground { get; set; } = true;
     public bool GraphiteGlass { get; set; } = true;
     public bool QuietMode { get; set; } = true;
+    public bool TrafficOverlay {get;set;}
+    public double OverlayOpacity {get;set;}=0.8;
+    public double OverlayTextSize {get;set;}=16;
+    public string OverlayCorner {get;set;}="bottom-right";
+    public double? OverlayLeft {get;set;}
+    public double? OverlayTop {get;set;}
     public bool TrayEnabled { get; set; } = true;
     public int ModernUiVersion { get; set; }
     public List<QuickRoute>? SharedQuickRoutes { get; set; }
