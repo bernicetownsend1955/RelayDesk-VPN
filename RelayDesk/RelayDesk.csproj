@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.30.1</Version>
-    <InformationalVersion>0.30.1-window-drop-routing</InformationalVersion>
+    <Version>0.30.2</Version>
+    <InformationalVersion>0.30.2-drop-without-secondary-logon</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>

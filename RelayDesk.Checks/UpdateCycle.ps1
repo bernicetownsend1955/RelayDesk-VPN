@@ -35,7 +35,7 @@ function Listening {return @([Net.NetworkInformation.IPGlobalProperties]::GetIPG
 try {
  $first=Launch;$owned+=,$first
  Wait-For {$first.Refresh();$first.MainWindowHandle -ne [IntPtr]::Zero} 'QA window not created'
- if($CheckOverlay){Wait-For {@(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object {$_.Name -eq 'RelayDesk.exe' -and $_.CommandLine -match '--overlay-host'}).Count -eq 1} 'Overlay worker not started';'PASS independent overlay worker started without another VPN instance'}
+ if($CheckOverlay){Wait-For {@(Get-CimInstance Win32_Process -Filter "Name='RelayDesk.exe'" | Where-Object {$_.CommandLine -match ('--overlay-host\s+'+$first.Id+'\s')}).Count -eq 1} 'Overlay worker not started';'PASS independent overlay worker started without another VPN instance'}
  $window=[System.Windows.Automation.AutomationElement]::FromHandle($first.MainWindowHandle)
  $name=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::NameProperty,'VPN')
  $invoke=New-Object System.Windows.Automation.PropertyCondition([System.Windows.Automation.AutomationElement]::IsInvokePatternAvailableProperty,$true)
@@ -81,7 +81,7 @@ try {
  Wait-For {$setupProcess.Refresh();$setupProcess.HasExited} 'QA installation did not finish'
  if($setupProcess.ExitCode -ne 0){throw ('QA installer failed '+$setupProcess.ExitCode)}
  $first.Refresh();if(!$first.HasExited){throw 'Installer replaced files without closing QA app'}
- if($CheckOverlay -and @(Get-CimInstance Win32_Process -Filter ('ParentProcessId='+$first.Id) | Where-Object {$_.Name -eq 'RelayDesk.exe' -and $_.CommandLine -match '--overlay-host'}).Count){throw 'Overlay worker remained after installation handoff'}
+ if($CheckOverlay -and @(Get-CimInstance Win32_Process -Filter "Name='RelayDesk.exe'" | Where-Object {$_.CommandLine -match ('--overlay-host\s+'+$first.Id+'\s')}).Count){throw 'Overlay worker remained after installation handoff'}
  if(Listening){throw 'Old owned core remained after installer shutdown'}
  if(!(Test-Path -LiteralPath (Join-Path $data 'pending-app-update.json'))){throw 'Queued update metadata was lost'}
  $state=Get-Content -LiteralPath (Join-Path $data 'update-resume.json') -Raw | ConvertFrom-Json

@@ -104,7 +104,11 @@ static partial class Program
     }
     [STAThread]static int Main()
     {
+        if(Environment.GetCommandLineArgs().Contains("--ole-source")){try{return OleSource();}catch(Exception ex){File.WriteAllText(Environment.GetCommandLineArgs()[^1],ex.ToString());return 1;}}
         string folder=Path.Combine(Path.GetTempPath(),"RelayDesk-production-QA-"+Guid.NewGuid().ToString("N"));Environment.SetEnvironmentVariable("RELAYDESK_DATA_DIR",folder);Environment.SetEnvironmentVariable("RELAYDESK_INLINE_OVERLAY","1");
+        if(Environment.GetCommandLineArgs().Contains("--drops-only"))Environment.SetEnvironmentVariable("RELAYDESK_DROP_QA_ONLY","1");
+        if(Environment.GetCommandLineArgs().Contains("--elevated-log")){var output=new StreamWriter(Path.Combine(AppContext.BaseDirectory,"elevated-drop.log")){AutoFlush=true};Console.SetOut(output);Console.SetError(output);}
+        File.WriteAllText(Path.Combine(AppContext.BaseDirectory,"qa-start.txt"),"Admin="+EngineSession.IsAdmin()+"; folder="+folder);
         var fixture=new Store(folder);
         var profile=new Profile{Name="Preserved profile",Core="sing-box",Config="{\"log\":{\"level\":\"error\"},\"inbounds\":[{\"type\":\"mixed\",\"listen\":\"127.0.0.1\",\"listen_port\":32199}],\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"},{\"type\":\"socks\",\"tag\":\"proxy\",\"server\":\"127.0.0.1\",\"server_port\":32200}],\"route\":{\"final\":\"proxy\"}}",SubscriptionGroup="Private group",QuickRoutes=[new("domain_suffix","example.org","proxy")]};
         fixture.Profiles.Add(profile);fixture.Settings.LastConnectedProfileId=profile.Id;fixture.Settings.Subscriptions.Add(new(){Url="https://example.com/private-subscription",Group="Private group"});

@@ -66,33 +66,45 @@ static partial class Program
     static void RealWindowDrop(MainWindow window,Workspace backend,bool file=false)
     {
         string? bridgeError=null;bool received=false,dialogSeen=false;Exception? failure=null;
-        var bridge=new OverlayBridge((_,_)=>{},()=>{},()=>{},payload=>{received=file?payload.Files.SequenceEqual(new[]{Environment.ProcessPath!}):payload.Text=="https://ole-drop.example.net/path";Call(window,"HandleWindowDrop",payload);},s=>bridgeError=s,()=>{},new WindowInteropHelper(window).Handle.ToInt64());
-        var source=new Window{Title="RelayDesk QA drag source",Width=150,Height=120,Left=8,Top=8,Topmost=true,ShowInTaskbar=false,Content=new TextBlock{Text="QA link",Margin=new Thickness(20)}};
+        var automatic=(OverlayBridge?)typeof(MainWindow).GetField("windowDropBridge",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.GetValue(window);
+        var bridge=automatic??new OverlayBridge((_,_)=>{},()=>{},()=>{},payload=>{received=file?payload.Files.SequenceEqual(new[]{Environment.ProcessPath!}):payload.Text=="https://ole-drop.example.net/path";Call(window,"HandleWindowDrop",payload);},s=>bridgeError=s,()=>{},new WindowInteropHelper(window).Handle.ToInt64());
         var closer=new DispatcherTimer{Interval=TimeSpan.FromMilliseconds(50)};
-        closer.Tick+=(_,_)=>{var dialog=Application.Current.Windows.OfType<DropRouteWindow>().FirstOrDefault();if(dialog==null)return;dialogSeen=true;dialog.Close();};
-        GetCursorPos(out var original);Thread? driver=null;
+        closer.Tick+=(_,_)=>{var dialog=Application.Current.Windows.OfType<DropRouteWindow>().FirstOrDefault();if(dialog==null)return;dialogSeen=true;if(automatic!=null)received=Visual<TextBlock>(dialog).Any(t=>t.Text==(file?Environment.ProcessPath!:"ole-drop.example.net"));dialog.Close();};
+        GetCursorPos(out var original);System.Diagnostics.Process? source=null;
+        string result=Path.Combine(Path.GetTempPath(),"RelayDesk-ole-source-"+Guid.NewGuid().ToString("N")+".txt");
         try
         {
             window.WindowState=WindowState.Normal;window.Left=180;window.Top=160;window.Topmost=true;window.Activate();
-            bridge.Show();Wait(()=>bridge.DisplayedName=="drop-target"||bridgeError!=null);
-            Check(bridge.DisplayedName=="drop-target"&&bridgeError==null,"Main drop receiver starts in separate process without enabling traffic overlay: "+bridgeError);
-            source.Show();source.Activate();Pump(100);var destination=window.PointToScreen(new Point(400,220));
-            bool started=false;
-            source.MouseMove+=(_,e)=>
-            {
-                if(started||e.LeftButton!=System.Windows.Input.MouseButtonState.Pressed)return;started=true;
-                try{var payload=file?new DataObject(DataFormats.FileDrop,new[]{Environment.ProcessPath!}):new DataObject(DataFormats.UnicodeText,"https://ole-drop.example.net/path");DragDrop.DoDragDrop(source,payload,DragDropEffects.Copy);}catch(Exception ex){failure=ex;}
-            };
+            if(automatic==null)bridge.Show();Wait(()=>bridge.DisplayedName is "drop-target" or "drag-enter"||bridgeError!=null);
+            Check(bridge.DisplayedName is "drop-target" or "drag-enter"&&bridgeError==null,"Main drop receiver starts in separate process without enabling traffic overlay: "+bridgeError);
+            Check(bridge.HostElevated==false,"Drop receiver reports standard Windows rights even when main window is elevated");
+            var destination=window.PointToScreen(new Point(400,220));
             closer.Start();
-            driver=new Thread(()=>
-            {
-                try{SetCursorPos(60,70);Thread.Sleep(100);mouse_event(2,0,0,0,UIntPtr.Zero);Thread.Sleep(120);SetCursorPos(90,85);Thread.Sleep(250);SetCursorPos((int)destination.X,(int)destination.Y);Thread.Sleep(300);GetCursorPos(out var current);var title=new System.Text.StringBuilder(200);GetWindowText(GetAncestor(WindowFromPoint(current),2),title,200);Console.WriteLine("QA OLE target: "+title+" at "+current.X+","+current.Y);SetCursorPos((int)destination.X+12,(int)destination.Y+8);Thread.Sleep(550);mouse_event(4,0,0,0,UIntPtr.Zero);}
-                catch(Exception ex){failure=ex;}
-            }){IsBackground=true};driver.Start();
-            Wait(()=>dialogSeen||failure!=null);if(failure!=null)throw failure;
-            Check(received&&dialogSeen,"Actual OLE "+(file?"EXE file":"browser link")+" drag lands on helper and opens route menu in main process (started="+started+", received="+received+", dialog="+dialogSeen+", state="+bridge.DisplayedName+")");
+            source=OverlayBridge.StartDesktopProcess($"--ole-source {(int)destination.X} {(int)destination.Y} {(file?"file":"link")} \"{result}\"",Environment.ProcessPath!);
+            Console.WriteLine("QA source executable: "+Environment.ProcessPath+"; pid="+source.Id);
+            Wait(()=>{source.Refresh();return source.MainWindowHandle!=IntPtr.Zero||source.HasExited;});
+            AllowSetForegroundWindow((uint)source.Id);SetForegroundWindow(source.MainWindowHandle);
+            Wait(()=>dialogSeen||failure!=null||source.HasExited);if(failure!=null)throw failure;
+            Wait(()=>source.HasExited);string report=(File.Exists(result)?File.ReadAllText(result):"no source result")+"; source exited="+source.HasExited+(source.HasExited?"; exit="+source.ExitCode:"");
+            Check(received&&dialogSeen&&report.Contains("Admin=False")&&report.Contains("Started=True")&&bridge.DisplayedName=="drag-enter","Standard-user OLE "+(file?"EXE file":"browser link")+" enters helper and opens main route menu: "+report+"; receiver="+bridge.DisplayedName);
         }
-        finally{driver?.Join(3000);mouse_event(4,0,0,0,UIntPtr.Zero);SetCursorPos(original.X,original.Y);closer.Stop();source.Close();bridge.Close();window.Topmost=false;Pump(250);}
+        finally{if(source!=null){if(!source.HasExited){source.CloseMainWindow();if(!source.WaitForExit(1500))source.Kill();}source.Dispose();}mouse_event(4,0,0,0,UIntPtr.Zero);SetCursorPos(original.X,original.Y);closer.Stop();if(automatic==null)bridge.Close();window.Topmost=false;Pump(250);}
+    }
+    [STAThread]static int OleSource()
+    {
+        var args=Environment.GetCommandLineArgs();int index=Array.IndexOf(args,"--ole-source");int x=int.Parse(args[index+1]),y=int.Parse(args[index+2]);bool file=args[index+3]=="file";string result=args[index+4];
+        File.WriteAllText(result,"Source started; Admin="+EngineSession.IsAdmin());
+        var app=new Application{ShutdownMode=ShutdownMode.OnMainWindowClose};var source=new Window{Title="RelayDesk QA drag source",Width=150,Height=140,Left=8,Top=8,Topmost=true,ShowInTaskbar=true,Content=new TextBlock{Text="QA link",Margin=new Thickness(20)}};
+        bool started=false;Thread? driver=null;
+        source.MouseMove+=(_,e)=>{if(started||e.LeftButton!=System.Windows.Input.MouseButtonState.Pressed)return;started=true;try{DragDrop.DoDragDrop(source,file?new DataObject(DataFormats.FileDrop,new[]{Environment.ProcessPath!}):new DataObject(DataFormats.UnicodeText,"https://ole-drop.example.net/path"),DragDropEffects.Copy);}finally{source.Close();}};
+        source.Loaded+=(_,_)=>
+        {
+            File.AppendAllText(result,"; Window loaded");
+            var origin=source.PointToScreen(new Point(40,40));
+            driver=new Thread(()=>{Thread.Sleep(1000);SetCursorPos((int)origin.X,(int)origin.Y);Thread.Sleep(200);mouse_event(2,0,0,0,UIntPtr.Zero);Thread.Sleep(200);SetCursorPos((int)origin.X+20,(int)origin.Y+5);Thread.Sleep(400);SetCursorPos(x,y);Thread.Sleep(300);SetCursorPos(x+12,y+8);Thread.Sleep(550);mouse_event(4,0,0,0,UIntPtr.Zero);}){IsBackground=true};driver.Start();
+        };
+        var timeout=new DispatcherTimer{Interval=TimeSpan.FromSeconds(10)};timeout.Tick+=(_,_)=>{timeout.Stop();source.Close();};timeout.Start();
+        app.Run(source);driver?.Join(3000);File.WriteAllText(result,"Admin="+EngineSession.IsAdmin()+"; Started="+started);return started?0:1;
     }
     [StructLayout(LayoutKind.Sequential)]struct CursorPoint{public int X,Y;}
     [DllImport("user32.dll")]static extern bool GetCursorPos(out CursorPoint point);
@@ -101,4 +113,6 @@ static partial class Program
     [DllImport("user32.dll")]static extern IntPtr WindowFromPoint(CursorPoint point);
     [DllImport("user32.dll")]static extern IntPtr GetAncestor(IntPtr window,uint flag);
     [DllImport("user32.dll",CharSet=CharSet.Unicode)]static extern int GetWindowText(IntPtr window,System.Text.StringBuilder text,int count);
+    [DllImport("user32.dll")]static extern bool AllowSetForegroundWindow(uint process);
+    [DllImport("user32.dll")]static extern bool SetForegroundWindow(IntPtr window);
 }

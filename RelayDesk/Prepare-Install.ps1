@@ -12,7 +12,7 @@ $ownedApps=@(Get-CimInstance Win32_Process -Filter "Name='RelayDesk.exe'" | Wher
  $owner=Invoke-CimMethod -InputObject $_ -MethodName GetOwnerSid
  return $owner.Sid -eq $identity
 })
-$overlayHosts=@($ownedApps | Where-Object {$_.CommandLine -match '(?i)(?:^|\s)--overlay-host(?:\s|$)' -and (!$OnlyProcessId -or $_.ParentProcessId -eq $OnlyProcessId)})
+$overlayHosts=@($ownedApps | Where-Object {$_.CommandLine -match '(?i)(?:^|\s)--overlay-host(?:\s|$)' -and (!$OnlyProcessId -or $_.CommandLine -match ('(?i)(?:^|\s)--overlay-host\s+'+$OnlyProcessId+'(?:\s|$)'))})
 $apps=@($ownedApps | Where-Object {$_.CommandLine -notmatch '(?i)(?:^|\s)--overlay-host(?:\s|$)' -and (!$OnlyProcessId -or $_.ProcessId -eq $OnlyProcessId)})
 foreach($app in $apps){
  $suspendedPending=''

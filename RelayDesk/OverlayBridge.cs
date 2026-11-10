@@ -16,7 +16,7 @@ public interface ITrafficOverlay
 }
 public sealed class OverlayPacket
 {
-    public string Kind {get;set;}="";public Preferences? Appearance {get;set;}public string Name {get;set;}="";public string Status {get;set;}="";public TrafficRate? Rate {get;set;}public OverlayDrop? Drop {get;set;}public double Left {get;set;}public double Top {get;set;}public long TargetWindow {get;set;}
+    public string Kind {get;set;}="";public Preferences? Appearance {get;set;}public string Name {get;set;}="";public string Status {get;set;}="";public TrafficRate? Rate {get;set;}public OverlayDrop? Drop {get;set;}public double Left {get;set;}public double Top {get;set;}public long TargetWindow {get;set;}public bool? Elevated {get;set;}
 }
 public sealed class OverlayBridge:ITrafficOverlay
 {
@@ -25,6 +25,7 @@ public sealed class OverlayBridge:ITrafficOverlay
     readonly string name="RelayDesk.Overlay."+Guid.NewGuid().ToString("N"),token=Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
     Process? child;bool closed;readonly bool dropMode;
     public string DisplayedName {get;private set;}="";
+    public bool? HostElevated {get;private set;}
     public OverlayBridge(Action<double,double> moved,Action settings,Action hide,Action<OverlayDrop> dropped,Action<string> error,Action scan,long dropTarget=0){this.moved=moved;this.settings=settings;this.hide=hide;this.dropped=dropped;this.error=error;this.scan=scan;dropMode=dropTarget!=0;if(dropMode)Send(new(){Kind="drop-target",TargetWindow=dropTarget});}
     public static Preferences Appearance(Preferences p)=>new(){OverlayOpacity=p.OverlayOpacity,OverlayTextSize=p.OverlayTextSize,OverlayCorner=p.OverlayCorner,OverlayLeft=p.OverlayLeft,OverlayTop=p.OverlayTop,OverlaySharks=p.OverlaySharks,OverlaySharkMotion=p.OverlaySharkMotion,OverlaySharkOpacity=p.OverlaySharkOpacity};
     public void Configure(Preferences p)=>Send(new(){Kind="configure",Appearance=Appearance(p)});
@@ -53,7 +54,7 @@ public sealed class OverlayBridge:ITrafficOverlay
                     await Application.Current.Dispatcher.InvokeAsync(()=>
                     {
                         if(closed)return;
-                        if(packet.Kind=="ready"){DisplayedName=packet.Name;if(dropMode&&packet.Name.StartsWith("drop-error: ",StringComparison.Ordinal))error(packet.Name[12..]);}
+                        if(packet.Kind=="ready"){DisplayedName=packet.Name;if(packet.Elevated!=null)HostElevated=packet.Elevated;if(dropMode&&packet.Name.StartsWith("drop-error: ",StringComparison.Ordinal))error(packet.Name[12..]);}
                         else if(packet.Kind=="move"&&double.IsFinite(packet.Left)&&double.IsFinite(packet.Top))moved(packet.Left,packet.Top);
                         else if(packet.Kind=="settings")settings();else if(packet.Kind=="hide")hide();else if(packet.Kind=="qr-screen")scan();else if(packet.Kind=="drop"&&packet.Drop!=null)dropped(packet.Drop);
                     });
@@ -96,7 +97,7 @@ public sealed class OverlayBridge:ITrafficOverlay
                         {
                             if(dropWindow!=null||overlay!=null)throw new InvalidDataException("Повторное назначение окна.");
                             dropWindow=new MainDropWindow(new IntPtr(packet.TargetWindow),parent,data=>Send(new(){Kind="drop",Drop=data}),state=>Send(new(){Kind="ready",Name=state}));
-                            Send(new(){Kind="ready",Name="drop-target"});return;
+                            Send(new(){Kind="ready",Name="drop-target",Elevated=EngineSession.IsAdmin()});return;
                         }
                         if(dropWindow!=null)return;
                         if(overlay==null){overlay=new TrafficOverlayWindow((x,y)=>Send(new(){Kind="move",Left=x,Top=y}),()=>Send(new(){Kind="settings"}),()=>Send(new(){Kind="hide"}),data=>Send(new(){Kind="drop",Drop=data}),()=>Send(new(){Kind="qr-screen"}));Application.Current.MainWindow=overlay;overlay.Show();}
@@ -111,32 +112,45 @@ public sealed class OverlayBridge:ITrafficOverlay
         catch(Exception){/* Host never changes profiles or starts cores. Parent reports launch errors. */}
         finally{await Application.Current.Dispatcher.InvokeAsync(()=>Application.Current.Shutdown());}
     }
-    public static Process StartDesktopProcess(string arguments)
+    public static Process StartDesktopProcess(string arguments,string? executablePath=null)
     {
-        var executable=Path.Combine(AppContext.BaseDirectory,"RelayDesk.exe");
-        if(!EngineSession.IsAdmin())return Process.Start(new ProcessStartInfo(executable){Arguments=arguments,UseShellExecute=false,WorkingDirectory=AppContext.BaseDirectory})!;
-        GetWindowThreadProcessId(GetShellWindow(),out uint pid);if(pid==0)throw new InvalidOperationException("Нет сеанса Проводника Windows.");
-        using var shell=Process.GetProcessById((int)pid);
-        if(!OpenProcessToken(shell.Handle,0x000B,out var access))throw new System.ComponentModel.Win32Exception();
+        var executable=executablePath??Path.Combine(AppContext.BaseDirectory,"RelayDesk.exe");
+        GetWindowThreadProcessId(GetShellWindow(),out uint pid);
+        if(pid==0){if(!EngineSession.IsAdmin())return Process.Start(new ProcessStartInfo(executable){Arguments=arguments,UseShellExecute=false,WorkingDirectory=AppContext.BaseDirectory})!;throw new InvalidOperationException("Нет сеанса Проводника Windows.");}
+        // Inherit Explorer's token via the documented parent-process attribute.
+        // Unlike CreateProcessWithTokenW this does not use the Secondary Logon service.
+        using var shell=OpenProcess(0x1080,false,pid);
+        if(shell.IsInvalid||!OpenProcessToken(shell.DangerousGetHandle(),0x0008,out var access))throw new System.ComponentModel.Win32Exception();
         using(access)
         {
             using var identity=new WindowsIdentity(access.DangerousGetHandle());using var current=WindowsIdentity.GetCurrent();if(identity.User!=current.User)throw new InvalidOperationException("Открой RelayDesk из своей учётной записи Windows.");
-            if(!DuplicateTokenEx(access,0x02000000,IntPtr.Zero,2,1,out var primary))throw new System.ComponentModel.Win32Exception();
-            using(primary)
+            IntPtr bytes=IntPtr.Zero;InitializeProcThreadAttributeList(IntPtr.Zero,1,0,ref bytes);
+            if(bytes==IntPtr.Zero)throw new System.ComponentModel.Win32Exception();
+            IntPtr attributes=Marshal.AllocHGlobal(bytes),parent=Marshal.AllocHGlobal(IntPtr.Size);bool initialized=false;
+            try
             {
-                var startup=new Startup{Size=Marshal.SizeOf<Startup>(),Desktop="winsta0\\default"};var command=new System.Text.StringBuilder('"'+executable+"\" "+arguments);
-                if(!CreateProcessWithTokenW(primary,0,executable,command,0,IntPtr.Zero,AppContext.BaseDirectory,ref startup,out var created))throw new System.ComponentModel.Win32Exception();
-                CloseHandle(created.Process);CloseHandle(created.Thread);return Process.GetProcessById((int)created.Id);
+                if(!InitializeProcThreadAttributeList(attributes,1,0,ref bytes))throw new System.ComponentModel.Win32Exception();initialized=true;
+                Marshal.WriteIntPtr(parent,shell.DangerousGetHandle());
+                if(!UpdateProcThreadAttribute(attributes,0,new IntPtr(0x00020000),parent,new IntPtr(IntPtr.Size),IntPtr.Zero,IntPtr.Zero))throw new System.ComponentModel.Win32Exception();
+                var startup=new StartupEx{Info=new Startup{Size=Marshal.SizeOf<StartupEx>(),Desktop="winsta0\\default"},Attributes=attributes};var command=new System.Text.StringBuilder('"'+executable+"\" "+arguments);
+                if(!CreateProcessW(executable,command,IntPtr.Zero,IntPtr.Zero,false,0x08080000,IntPtr.Zero,AppContext.BaseDirectory,ref startup,out var created))throw new System.ComponentModel.Win32Exception();
+                try{var process=Process.GetProcessById((int)created.Id);_=process.SafeHandle;return process;}
+                finally{CloseHandle(created.Process);CloseHandle(created.Thread);}
             }
+            finally{if(initialized)DeleteProcThreadAttributeList(attributes);Marshal.FreeHGlobal(parent);Marshal.FreeHGlobal(attributes);}
         }
     }
     [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]struct Startup{public int Size;public string? Reserved,Desktop,Title;public int X,Y,XSize,YSize,XChars,YChars,Fill,Flags;public short Show,ReservedSize;public IntPtr ReservedPointer,Input,Output,Error;}
+    [StructLayout(LayoutKind.Sequential,CharSet=CharSet.Unicode)]struct StartupEx{public Startup Info;public IntPtr Attributes;}
     [StructLayout(LayoutKind.Sequential)]struct Created{public IntPtr Process,Thread;public uint Id,ThreadId;}
     [DllImport("kernel32.dll",SetLastError=true)]static extern bool GetNamedPipeClientProcessId(SafePipeHandle pipe,out uint pid);
     [DllImport("user32.dll")]static extern IntPtr GetShellWindow();
     [DllImport("user32.dll")]static extern uint GetWindowThreadProcessId(IntPtr window,out uint pid);
     [DllImport("advapi32.dll",SetLastError=true)]static extern bool OpenProcessToken(IntPtr process,uint access,out SafeAccessTokenHandle token);
-    [DllImport("advapi32.dll",SetLastError=true)]static extern bool DuplicateTokenEx(SafeAccessTokenHandle token,uint access,IntPtr attributes,int impersonation,int type,out SafeAccessTokenHandle primary);
-    [DllImport("advapi32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool CreateProcessWithTokenW(SafeAccessTokenHandle token,uint logon,string? application,System.Text.StringBuilder command,uint flags,IntPtr environment,string directory,ref Startup startup,out Created created);
+    [DllImport("kernel32.dll",SetLastError=true)]static extern SafeProcessHandle OpenProcess(uint access,bool inherit,uint process);
+    [DllImport("kernel32.dll",SetLastError=true)]static extern bool InitializeProcThreadAttributeList(IntPtr list,int count,int flags,ref IntPtr size);
+    [DllImport("kernel32.dll",SetLastError=true)]static extern bool UpdateProcThreadAttribute(IntPtr list,uint flags,IntPtr attribute,IntPtr value,IntPtr size,IntPtr previous,IntPtr returned);
+    [DllImport("kernel32.dll")]static extern void DeleteProcThreadAttributeList(IntPtr list);
+    [DllImport("kernel32.dll",CharSet=CharSet.Unicode,SetLastError=true)]static extern bool CreateProcessW(string application,System.Text.StringBuilder command,IntPtr processAttributes,IntPtr threadAttributes,bool inherit,uint flags,IntPtr environment,string directory,ref StartupEx startup,out Created created);
     [DllImport("kernel32.dll")]static extern bool CloseHandle(IntPtr handle);
 }
