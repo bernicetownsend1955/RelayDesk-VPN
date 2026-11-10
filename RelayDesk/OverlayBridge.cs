@@ -16,16 +16,16 @@ public interface ITrafficOverlay
 }
 public sealed class OverlayPacket
 {
-    public string Kind {get;set;}="";public Preferences? Appearance {get;set;}public string Name {get;set;}="";public string Status {get;set;}="";public TrafficRate? Rate {get;set;}public OverlayDrop? Drop {get;set;}public double Left {get;set;}public double Top {get;set;}
+    public string Kind {get;set;}="";public Preferences? Appearance {get;set;}public string Name {get;set;}="";public string Status {get;set;}="";public TrafficRate? Rate {get;set;}public OverlayDrop? Drop {get;set;}public double Left {get;set;}public double Top {get;set;}public long TargetWindow {get;set;}
 }
 public sealed class OverlayBridge:ITrafficOverlay
 {
     readonly Action<double,double> moved;readonly Action settings,hide,scan;readonly Action<OverlayDrop> dropped;readonly Action<string> error;
     readonly CancellationTokenSource cancel=new();readonly Channel<OverlayPacket> outgoing=Channel.CreateUnbounded<OverlayPacket>();
     readonly string name="RelayDesk.Overlay."+Guid.NewGuid().ToString("N"),token=Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
-    Process? child;bool closed;
+    Process? child;bool closed;readonly bool dropMode;
     public string DisplayedName {get;private set;}="";
-    public OverlayBridge(Action<double,double> moved,Action settings,Action hide,Action<OverlayDrop> dropped,Action<string> error,Action scan){this.moved=moved;this.settings=settings;this.hide=hide;this.dropped=dropped;this.error=error;this.scan=scan;}
+    public OverlayBridge(Action<double,double> moved,Action settings,Action hide,Action<OverlayDrop> dropped,Action<string> error,Action scan,long dropTarget=0){this.moved=moved;this.settings=settings;this.hide=hide;this.dropped=dropped;this.error=error;this.scan=scan;dropMode=dropTarget!=0;if(dropMode)Send(new(){Kind="drop-target",TargetWindow=dropTarget});}
     public static Preferences Appearance(Preferences p)=>new(){OverlayOpacity=p.OverlayOpacity,OverlayTextSize=p.OverlayTextSize,OverlayCorner=p.OverlayCorner,OverlayLeft=p.OverlayLeft,OverlayTop=p.OverlayTop,OverlaySharks=p.OverlaySharks,OverlaySharkMotion=p.OverlaySharkMotion,OverlaySharkOpacity=p.OverlaySharkOpacity};
     public void Configure(Preferences p)=>Send(new(){Kind="configure",Appearance=Appearance(p)});
     public void Place(Preferences p)=>Send(new(){Kind="place",Appearance=Appearance(p)});
@@ -53,7 +53,7 @@ public sealed class OverlayBridge:ITrafficOverlay
                     await Application.Current.Dispatcher.InvokeAsync(()=>
                     {
                         if(closed)return;
-                        if(packet.Kind=="ready")DisplayedName=packet.Name;
+                        if(packet.Kind=="ready"){DisplayedName=packet.Name;if(dropMode&&packet.Name.StartsWith("drop-error: ",StringComparison.Ordinal))error(packet.Name[12..]);}
                         else if(packet.Kind=="move"&&double.IsFinite(packet.Left)&&double.IsFinite(packet.Top))moved(packet.Left,packet.Top);
                         else if(packet.Kind=="settings")settings();else if(packet.Kind=="hide")hide();else if(packet.Kind=="qr-screen")scan();else if(packet.Kind=="drop"&&packet.Drop!=null)dropped(packet.Drop);
                     });
@@ -64,7 +64,7 @@ public sealed class OverlayBridge:ITrafficOverlay
             if(!closed)await Application.Current.Dispatcher.InvokeAsync(hide);
         }
         catch(OperationCanceledException)when(closed){}
-        catch(Exception ex){if(!closed)await Application.Current.Dispatcher.InvokeAsync(()=>{hide();error("Оверлей не запущен: "+ProgramJournal.Clean(ex.Message));});}
+        catch(Exception ex){if(!closed)await Application.Current.Dispatcher.InvokeAsync(()=>{hide();error((dropMode?"Перетаскивание не включено: ":"Оверлей не запущен: ")+ProgramJournal.Clean(ex.Message));});}
         finally{closed=true;cancel.Cancel();server.Dispose();if(child!=null){try{if(!child.HasExited){using var timeout=new CancellationTokenSource(1500);try{await child.WaitForExitAsync(timeout.Token);}catch(OperationCanceledException){child.Kill();}}}catch(InvalidOperationException){}child.Dispose();}}
     }
     static async Task<string?> ReadLine(StreamReader reader,CancellationToken cancellation)
@@ -82,8 +82,7 @@ public sealed class OverlayBridge:ITrafficOverlay
             await pipe.ConnectAsync(15000).ConfigureAwait(false);using var reader=new StreamReader(pipe,leaveOpen:true);using var writer=new StreamWriter(pipe,leaveOpen:true){AutoFlush=true};await writer.WriteLineAsync(args[3]).ConfigureAwait(false);
             var messages=Channel.CreateUnbounded<OverlayPacket>();
             void Send(OverlayPacket packet)=>messages.Writer.TryWrite(packet);
-            TrafficOverlayWindow? overlay=null;
-            await Application.Current.Dispatcher.InvokeAsync(()=>{overlay=new TrafficOverlayWindow((x,y)=>Send(new(){Kind="move",Left=x,Top=y}),()=>Send(new(){Kind="settings"}),()=>Send(new(){Kind="hide"}),data=>Send(new(){Kind="drop",Drop=data}),()=>Send(new(){Kind="qr-screen"}));Application.Current.MainWindow=overlay;overlay.Show();});
+            TrafficOverlayWindow? overlay=null;MainDropWindow? dropWindow=null;
             var sending=Task.Run(async()=>{await foreach(var packet in messages.Reader.ReadAllAsync(cancel.Token))await writer.WriteLineAsync(JsonSerializer.Serialize(packet).AsMemory(),cancel.Token);},cancel.Token);
             using var owner=Process.GetProcessById(parent);var monitor=Task.Run(async()=>{await owner.WaitForExitAsync(cancel.Token);cancel.Cancel();},cancel.Token);
             try
@@ -93,13 +92,21 @@ public sealed class OverlayBridge:ITrafficOverlay
                     var line=await ReadLine(reader,cancel.Token);if(line==null)break;var packet=JsonSerializer.Deserialize<OverlayPacket>(line);if(packet==null)continue;
                     await Application.Current.Dispatcher.InvokeAsync(()=>
                     {
+                        if(packet.Kind=="drop-target")
+                        {
+                            if(dropWindow!=null||overlay!=null)throw new InvalidDataException("Повторное назначение окна.");
+                            dropWindow=new MainDropWindow(new IntPtr(packet.TargetWindow),parent,data=>Send(new(){Kind="drop",Drop=data}),state=>Send(new(){Kind="ready",Name=state}));
+                            Send(new(){Kind="ready",Name="drop-target"});return;
+                        }
+                        if(dropWindow!=null)return;
+                        if(overlay==null){overlay=new TrafficOverlayWindow((x,y)=>Send(new(){Kind="move",Left=x,Top=y}),()=>Send(new(){Kind="settings"}),()=>Send(new(){Kind="hide"}),data=>Send(new(){Kind="drop",Drop=data}),()=>Send(new(){Kind="qr-screen"}));Application.Current.MainWindow=overlay;overlay.Show();}
                         if(packet.Kind=="configure"&&packet.Appearance!=null)overlay!.Configure(packet.Appearance);
                         else if(packet.Kind=="place"&&packet.Appearance!=null)overlay!.Place(packet.Appearance);
                         else if(packet.Kind=="update"){overlay!.Update(packet.Name,packet.Rate,packet.Status);Send(new(){Kind="ready",Name=packet.Name});}
                     });
                 }
             }
-            finally{cancel.Cancel();await Application.Current.Dispatcher.InvokeAsync(()=>overlay?.Close());try{await Task.WhenAll(sending,monitor);}catch(OperationCanceledException){}}
+            finally{cancel.Cancel();await Application.Current.Dispatcher.InvokeAsync(()=>{overlay?.Close();dropWindow?.Dispose();});try{await Task.WhenAll(sending,monitor);}catch(OperationCanceledException){}}
         }
         catch(Exception){/* Host never changes profiles or starts cores. Parent reports launch errors. */}
         finally{await Application.Current.Dispatcher.InvokeAsync(()=>Application.Current.Shutdown());}

@@ -6,10 +6,22 @@ namespace RelayDesk;
 public sealed record OverlayDrop(string[] Files,string Text);
 public static class OverlayDrops
 {
+    public static bool Supports(IDataObject data)=>data.GetDataPresent(DataFormats.FileDrop)||data.GetDataPresent(DataFormats.UnicodeText)||data.GetDataPresent(DataFormats.Text)||data.GetDataPresent("UniformResourceLocatorW")||data.GetDataPresent("UniformResourceLocator");
     public static OverlayDrop Read(IDataObject data)
     {
         var files=data.GetDataPresent(DataFormats.FileDrop)?(data.GetData(DataFormats.FileDrop) as string[]??[]):[];
         var text=data.GetDataPresent(DataFormats.UnicodeText)?data.GetData(DataFormats.UnicodeText) as string:data.GetData(DataFormats.Text) as string;
+        if(string.IsNullOrWhiteSpace(text))
+        {
+            foreach(var format in new[]{"UniformResourceLocatorW","UniformResourceLocator"})
+            {
+                if(!data.GetDataPresent(format))continue;
+                var value=data.GetData(format);
+                if(value is string link)text=link;
+                else if(value is Stream stream){if(stream.CanSeek)stream.Position=0;var bytes=new byte[16_385];int length=0,read;while(length<bytes.Length&&(read=stream.Read(bytes,length,bytes.Length-length))>0)length+=read;if(length>16_384)throw new FormatException("Слишком длинная ссылка.");text=(format.EndsWith('W')?System.Text.Encoding.Unicode:System.Text.Encoding.UTF8).GetString(bytes,0,length).TrimEnd('\0');}
+                if(!string.IsNullOrWhiteSpace(text))break;
+            }
+        }
         return new(files.Take(8).ToArray(),(text??"").Length>120_000?throw new FormatException("Слишком большой текст."):text??"");
     }
     public static RouteRule Rule(string value)

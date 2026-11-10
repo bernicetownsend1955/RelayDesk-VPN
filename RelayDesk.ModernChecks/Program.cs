@@ -7,7 +7,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using RelayDesk;
 
-static class Program
+static partial class Program
 {
     static int count;
     static void Check(bool ok,string name){if(!ok)throw new Exception(name);Console.WriteLine("PASS "+name);count++;}
@@ -117,6 +117,7 @@ static class Program
         {
             window=new MainWindow();window.Show();Pump(250);
             var backend=(Workspace)typeof(MainWindow).GetField("backend",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)!;
+            if(Environment.GetEnvironmentVariable("RELAYDESK_DROP_QA_ONLY")=="1"){WindowDropChecks(window,backend,folder);window.Close();Console.WriteLine($"COMPLETE: {count} window drop checks passed.");return 0;}
             Check(backend.ModernProfile?.Id==profile.Id,"Modern shell restores the existing selected profile");
             Check(backend.ModernStore.Profiles.Single().Config==profile.Config&&backend.ModernStore.Settings.Subscriptions.Single().Url==fixture.Settings.Subscriptions.Single().Url,"Production profiles and private subscriptions survive UI migration");
             var backups=Directory.GetDirectories(Path.Combine(folder,"backups"));Check(backups.Length==1&&File.ReadAllText(Path.Combine(backups[0],"profiles.json"))==original&&File.ReadAllText(Path.Combine(backups[0],"settings.json"))==settings,"Migration backs up original files byte-for-byte before saving");
@@ -412,6 +413,7 @@ static class Program
             backend.ModernStore.Settings.RoutingPreset="rules";backend.ModernSaveFallback("source");Call(window,"LoadProfileRules");
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
             Call(window,"SelectPage",1);QrChecks(window,backend,folder);
+            WindowDropChecks(window,backend,folder);
             Call(window,"SelectPage",3);
             var editor=(TextBox)backend.FindName("ConfigEditor");var profileName=(TextBox)backend.FindName("ProfileName");
             string savedEditor=editor.Text,savedName=profileName.Text;

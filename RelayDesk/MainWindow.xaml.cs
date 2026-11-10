@@ -57,6 +57,7 @@ public partial class MainWindow : Window
         SizeChanged+=(_,_)=>WindowClip.Rect=new Rect(0,0,ActualWidth,ActualHeight);
         InitializeQuietMode();App.Motion=state.Motion&&SystemParameters.ClientAreaAnimation;
         InitializeOverlay();
+        InitializeWindowDrops();
         initialized=true;RefreshFromBackend();SelectPage(0);
         InitializeConnectionFilters();
         LoadZapretStrategies();

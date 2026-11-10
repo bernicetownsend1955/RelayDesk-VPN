@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.30.0</Version>
-    <InformationalVersion>0.30.0-overlay-drop-qr</InformationalVersion>
+    <Version>0.30.1</Version>
+    <InformationalVersion>0.30.1-window-drop-routing</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>
