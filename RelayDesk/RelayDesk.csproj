@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.30.2</Version>
-    <InformationalVersion>0.30.2-drop-without-secondary-logon</InformationalVersion>
+    <Version>0.30.3</Version>
+    <InformationalVersion>0.30.3-browser-address-and-clipboard</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>

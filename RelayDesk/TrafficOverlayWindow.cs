@@ -24,7 +24,7 @@ public sealed class TrafficOverlayWindow:Window,ITrafficOverlay
         AllowDrop=true;
         DragEnter+=(_,_)=>canvas.Background=new SolidColorBrush(Color.FromArgb(28,255,255,255));
         DragLeave+=(_,_)=>canvas.Background=Brushes.Transparent;
-        DragOver+=(_,e)=>{e.Effects=e.Data.GetDataPresent(DataFormats.FileDrop)||e.Data.GetDataPresent(DataFormats.UnicodeText)||e.Data.GetDataPresent(DataFormats.Text)?DragDropEffects.Copy:DragDropEffects.None;e.Handled=true;};
+        DragOver+=(_,e)=>{e.Effects=OverlayDrops.Effect(e.AllowedEffects,OverlayDrops.Supports(e.Data));e.Handled=true;};
         Drop+=(_,e)=>{canvas.Background=Brushes.Transparent;try{var data=OverlayDrops.Read(e.Data);Dispatcher.BeginInvoke(()=>dropped?.Invoke(data));}catch(Exception ex){ToolTip=ex.Message;}e.Handled=true;};
         MouseLeftButtonDown+=(_,e)=>{if(e.ClickCount==2){settings();return;}DragMove();EnsureOnScreen();moved(Left,Top);};
         var menu=new ContextMenu();var configure=new MenuItem{Header="Настроить оверлей"};configure.Click+=(_,_)=>settings();var close=new MenuItem{Header="Скрыть оверлей"};close.Click+=(_,_)=>hide();menu.Items.Add(configure);menu.Items.Add(close);ContextMenu=menu;

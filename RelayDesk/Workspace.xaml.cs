@@ -276,7 +276,7 @@ public partial class Workspace : UserControl
         else { ServerTitle.Text = "Добавь сервер"; ServerDescription.Text = "Вставь ссылку из буфера или импортируй JSON."; ConfigEditor.Clear(); UpdateStatus(); }
         return Task.CompletedTask;
     });
-    void Paste(object sender, RoutedEventArgs e) => Safe(async () => { var text = Clipboard.GetText().Trim(); if (text.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || text.StartsWith("happ://add/", StringComparison.OrdinalIgnoreCase)) await ImportSubscription(text); else ImportText(text); });
+    void Paste(object sender, RoutedEventArgs e) => Safe(async () => { var text = (await ClipboardContent.Read()).Text.Trim(); if (text.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || text.StartsWith("happ://add/", StringComparison.OrdinalIgnoreCase)) await ImportSubscription(text); else ImportText(text); });
     void ImportFile(object sender, RoutedEventArgs e) => Safe(() =>
     {
         var dialog = new OpenFileDialog { Filter = "Конфигурации и ссылки|*.json;*.yaml;*.yml;*.txt|Все файлы|*.*" };

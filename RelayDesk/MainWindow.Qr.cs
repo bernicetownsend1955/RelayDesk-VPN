@@ -25,7 +25,7 @@ public partial class MainWindow
     }
     async void ReadQrClipboard(object sender,RoutedEventArgs e)
     {
-        try{if(Clipboard.ContainsImage())await AcceptQrImage(Clipboard.GetImage());else if(Clipboard.ContainsText())await AcceptQrText(Clipboard.GetText());else Toast("Скопируй QR-код изображением или его содержимое текстом.");}catch(Exception ex){Toast(ProgramJournal.Clean(ex.Message));}
+        try{var clipboard=await ClipboardContent.Read();if(clipboard.Image!=null)await AcceptQrImage(clipboard.Image);else if(clipboard.Text.Length>0)await AcceptQrText(clipboard.Text);else Toast("Скопируй QR-код изображением или его содержимое текстом.");}catch(Exception ex){Toast(ProgramJournal.Clean(ex.Message));}
     }
     async void ReadQrScreen(object sender,RoutedEventArgs e)
     {

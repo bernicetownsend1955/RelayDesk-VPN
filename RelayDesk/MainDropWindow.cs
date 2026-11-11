@@ -19,6 +19,9 @@ public sealed class MainDropWindow : Window,IDisposable
     IntPtr handle;
     bool disposed;
     DateTime releaseAt;
+    bool wasDown,addressEntered;
+    int addressGesture;
+    Task<string?>? address;
     public MainDropWindow(IntPtr target,int parent,Action<OverlayDrop> dropped,Action<string>? report=null)
     {
         GetWindowThreadProcessId(target,out uint process);
@@ -26,7 +29,8 @@ public sealed class MainDropWindow : Window,IDisposable
         this.target=target;this.dropped=dropped;this.report=report;
         Title="RelayDesk · Перетащи приложение или ссылку";WindowStyle=WindowStyle.None;ResizeMode=ResizeMode.NoResize;
         ShowActivated=false;ShowInTaskbar=false;Topmost=true;AllowsTransparency=true;Background=new SolidColorBrush(Color.FromArgb(245,16,19,24));
-        FontFamily=new FontFamily("Segoe UI");Foreground=new SolidColorBrush(Color.FromRgb(236,238,242));AllowDrop=true;
+        FontFamily=new FontFamily("Segoe UI");Foreground=new SolidColorBrush(Color.FromRgb(236,238,242));
+        AllowDrop=!(Environment.GetEnvironmentVariable("RELAYDESK_DATA_DIR")!=null&&Environment.GetEnvironmentVariable("RELAYDESK_QA_ADDRESS_FALLBACK")=="1");
         var text=new StackPanel{HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,Margin=new Thickness(32)};
         text.Children.Add(new TextBlock{Text="Отпусти приложение или ссылку",FontSize=26,Margin=new Thickness(0,0,0,12)});
         text.Children.Add(new TextBlock{Text="Выбери маршрут: VPN, zapret или напрямую",FontSize=16});
@@ -34,8 +38,8 @@ public sealed class MainDropWindow : Window,IDisposable
         handle=new WindowInteropHelper(this).EnsureHandle();
         SetWindowLongPtr(handle,-20,new IntPtr(GetWindowLongPtr(handle,-20).ToInt64()|0x08000000|0x80));
         PreviewDragEnter+=(_,_)=>report?.Invoke("drag-enter");
-        PreviewDragOver+=(_,e)=>{e.Effects=OverlayDrops.Supports(e.Data)?DragDropEffects.Copy:DragDropEffects.None;e.Handled=true;};
-        PreviewDrop+=(_,e)=>{e.Handled=true;try{var data=OverlayDrops.Read(e.Data);Hide();gesture.Cancel();Dispatcher.BeginInvoke(()=>dropped(data));}catch(Exception ex){Hide();gesture.Cancel();report?.Invoke("drop-error: "+ProgramJournal.Clean(ex.Message));}};
+        PreviewDragOver+=(_,e)=>{e.Effects=OverlayDrops.Effect(e.AllowedEffects,OverlayDrops.Supports(e.Data));e.Handled=true;};
+        PreviewDrop+=(_,e)=>{e.Handled=true;try{var data=OverlayDrops.Read(e.Data);addressGesture++;Hide();gesture.Cancel();Dispatcher.BeginInvoke(()=>dropped(data));}catch(Exception ex){Hide();gesture.Cancel();report?.Invoke("drop-error: "+ProgramJournal.Clean(ex.Message));}};
         timer.Tick+=(_,_)=>Poll();timer.Start();
     }
     void Poll()
@@ -47,7 +51,13 @@ public sealed class MainDropWindow : Window,IDisposable
         var under=GetAncestor(WindowFromPoint(point),2);
         bool over=under==target||under==handle;
         bool available=IsWindowVisible(target)&&!IsIconic(target)&&IsWindowEnabled(target);
-        bool show=gesture.Update(down,over,point.X,point.Y,available,(GetAsyncKeyState(27)&0x8000)!=0);
+        bool escape=(GetAsyncKeyState(27)&0x8000)!=0;
+        if(down&&!wasDown){addressGesture++;addressEntered=false;address=!over?Task.Run(()=>BrowserAddressDrag.Read(point.X,point.Y)):null;}
+        if(escape||!available){addressGesture++;address=null;addressEntered=false;}
+        bool show=gesture.Update(down,over,point.X,point.Y,available,escape);
+        if(show)addressEntered=true;
+        if(!down&&wasDown&&over&&available&&addressEntered&&address!=null)_=CompleteAddress(address,addressGesture);
+        wasDown=down;
         // OLE delivers Drop across processes after the mouse release. Hiding at
         // once unregisters WPF's target before that delivery completes.
         if(!show){if(IsVisible&&(down||!available||(DateTime.UtcNow-releaseAt).TotalMilliseconds>=150))Hide();return;}
@@ -55,6 +65,14 @@ public sealed class MainDropWindow : Window,IDisposable
         var origin=new PixelPoint();ClientToScreen(target,ref origin);
         if(!IsVisible)Show();
         SetWindowPos(handle,new IntPtr(-1),origin.X,origin.Y,rect.Right-rect.Left,rect.Bottom-rect.Top,0x0010|0x0040);
+    }
+    async Task CompleteAddress(Task<string?> capture,int generation)
+    {
+        await Task.Delay(200);
+        if(await Task.WhenAny(capture,Task.Delay(600))!=capture)return;
+        string? value=await capture;
+        if(value==null||disposed||generation!=addressGesture||!IsWindowEnabled(target))return;
+        addressGesture++;Hide();gesture.Cancel();report?.Invoke("address-drop");dropped(new([],value));
     }
     public void Dispose(){if(disposed)return;disposed=true;timer.Stop();Close();}
     [StructLayout(LayoutKind.Sequential)]struct PixelPoint{public int X,Y;}

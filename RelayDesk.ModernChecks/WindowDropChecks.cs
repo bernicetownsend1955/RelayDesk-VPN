@@ -11,6 +11,10 @@ static partial class Program
     static void WindowDropChecks(MainWindow window,Workspace backend,string folder)
     {
         var saved=backend.ModernStore.Settings.SharedQuickRoutes!.ToList();
+        Check(OverlayDrops.Effect(DragDropEffects.Link,true)==DragDropEffects.Link&&OverlayDrops.Effect(DragDropEffects.Move,true)==DragDropEffects.None,"URL link-only drags are accepted without asking the source to move data");
+        Check(BrowserAddressDrag.Normalize("example.org")=="https://example.org"&&BrowserAddressDrag.Normalize("https://example.org/path")=="https://example.org/path","Browser address accepts displayed host and full HTTP URL");
+        Check(BrowserAddressDrag.Normalize("chrome://settings")==null&&BrowserAddressDrag.Normalize("javascript:alert(1)")==null&&BrowserAddressDrag.Normalize("two words")==null,"Browser address rejects internal commands and ordinary text");
+        Check(!BrowserAddressDrag.IsAddressControl("HTMLInputElement","search","Search")&&BrowserAddressDrag.IsAddressControl("OmniboxViewViews","",""),"Address fallback distinguishes browser chrome from webpage input");
         string savedStrategy=backend.ModernStore.Settings.ZapretArgs;
         backend.ModernStore.Settings.ZapretArgs="--dpi-desync=multisplit";backend.ModernStore.Save();
         string profilesBefore=File.ReadAllText(Path.Combine(folder,"profiles.json")),settingsBefore=File.ReadAllText(Path.Combine(folder,"settings.json"));

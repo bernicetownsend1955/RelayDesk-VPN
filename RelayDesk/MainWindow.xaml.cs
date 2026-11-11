@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         InitializeQuietMode();App.Motion=state.Motion&&SystemParameters.ClientAreaAnimation;
         InitializeOverlay();
         InitializeWindowDrops();
+        InitializeWindowClipboard();
         initialized=true;RefreshFromBackend();SelectPage(0);
         InitializeConnectionFilters();
         LoadZapretStrategies();

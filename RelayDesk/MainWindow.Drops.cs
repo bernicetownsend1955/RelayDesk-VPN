@@ -9,7 +9,7 @@ public partial class MainWindow
     void InitializeWindowDrops()
     {
         AllowDrop=true;
-        PreviewDragOver+=(_,e)=>{e.Effects=!rulesDialogOpen&&OverlayDrops.Supports(e.Data)?DragDropEffects.Copy:DragDropEffects.None;e.Handled=true;};
+        PreviewDragOver+=(_,e)=>{e.Effects=OverlayDrops.Effect(e.AllowedEffects,!rulesDialogOpen&&OverlayDrops.Supports(e.Data));e.Handled=true;};
         PreviewDrop+=(_,e)=>
         {
             e.Handled=true;

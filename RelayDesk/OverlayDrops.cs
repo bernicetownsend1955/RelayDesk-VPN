@@ -6,6 +6,7 @@ namespace RelayDesk;
 public sealed record OverlayDrop(string[] Files,string Text);
 public static class OverlayDrops
 {
+    public static DragDropEffects Effect(DragDropEffects allowed,bool supported)=>!supported?DragDropEffects.None:(allowed&DragDropEffects.Copy)!=0?DragDropEffects.Copy:(allowed&DragDropEffects.Link)!=0?DragDropEffects.Link:DragDropEffects.None;
     public static bool Supports(IDataObject data)=>data.GetDataPresent(DataFormats.FileDrop)||data.GetDataPresent(DataFormats.UnicodeText)||data.GetDataPresent(DataFormats.Text)||data.GetDataPresent("UniformResourceLocatorW")||data.GetDataPresent("UniformResourceLocator");
     public static OverlayDrop Read(IDataObject data)
     {

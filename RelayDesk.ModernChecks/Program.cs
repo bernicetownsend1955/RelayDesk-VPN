@@ -106,6 +106,7 @@ static partial class Program
     {
         if(Environment.GetCommandLineArgs().Contains("--ole-source")){try{return OleSource();}catch(Exception ex){File.WriteAllText(Environment.GetCommandLineArgs()[^1],ex.ToString());return 1;}}
         string folder=Path.Combine(Path.GetTempPath(),"RelayDesk-production-QA-"+Guid.NewGuid().ToString("N"));Environment.SetEnvironmentVariable("RELAYDESK_DATA_DIR",folder);Environment.SetEnvironmentVariable("RELAYDESK_INLINE_OVERLAY","1");
+        if(Environment.GetCommandLineArgs().Contains("--browser-no-ole"))Environment.SetEnvironmentVariable("RELAYDESK_QA_ADDRESS_FALLBACK","1");
         if(Environment.GetCommandLineArgs().Contains("--drops-only"))Environment.SetEnvironmentVariable("RELAYDESK_DROP_QA_ONLY","1");
         if(Environment.GetCommandLineArgs().Contains("--elevated-log")){var output=new StreamWriter(Path.Combine(AppContext.BaseDirectory,"elevated-drop.log")){AutoFlush=true};Console.SetOut(output);Console.SetError(output);}
         File.WriteAllText(Path.Combine(AppContext.BaseDirectory,"qa-start.txt"),"Admin="+EngineSession.IsAdmin()+"; folder="+folder);
@@ -121,6 +122,7 @@ static partial class Program
         {
             window=new MainWindow();window.Show();Pump(250);
             var backend=(Workspace)typeof(MainWindow).GetField("backend",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(window)!;
+            if(Environment.GetCommandLineArgs().Contains("--browser-drop")){BrowserDropChecks(window);window.Close();return 0;}
             if(Environment.GetEnvironmentVariable("RELAYDESK_DROP_QA_ONLY")=="1"){WindowDropChecks(window,backend,folder);window.Close();Console.WriteLine($"COMPLETE: {count} window drop checks passed.");return 0;}
             Check(backend.ModernProfile?.Id==profile.Id,"Modern shell restores the existing selected profile");
             Check(backend.ModernStore.Profiles.Single().Config==profile.Config&&backend.ModernStore.Settings.Subscriptions.Single().Url==fixture.Settings.Subscriptions.Single().Url,"Production profiles and private subscriptions survive UI migration");
@@ -418,6 +420,7 @@ static partial class Program
             backend.ModernSelect(backend.ModernStore.Profiles.Single(p=>p.Id==profile.Id));backend.ModernStore.Profiles.RemoveAll(p=>p.Id==imported.Id);backend.ModernStore.Save();
             Call(window,"SelectPage",1);QrChecks(window,backend,folder);
             WindowDropChecks(window,backend,folder);
+            ClipboardChecks(window,backend,folder);
             Call(window,"SelectPage",3);
             var editor=(TextBox)backend.FindName("ConfigEditor");var profileName=(TextBox)backend.FindName("ProfileName");
             string savedEditor=editor.Text,savedName=profileName.Text;
