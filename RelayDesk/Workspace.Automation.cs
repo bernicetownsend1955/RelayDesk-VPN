@@ -110,13 +110,13 @@ public partial class Workspace
         Write(summary); Write("Отчёт Discord сохранён: " + reportFile);
         return true;
     }
-    async Task ConnectAutomatically(Profile profile)
+    async Task ConnectAutomatically(Profile profile,bool? includeZapret=null)
     {
-        SaveAutomation(validateZapret: WithZapret.IsChecked == true);
+        SaveAutomation(validateZapret: includeZapret??WithZapret.IsChecked == true);
         await Automatic(async cancellation =>
         {
             if (store.Settings.SyncOnStart) { SyncApproved(); profile = store.Profiles.FirstOrDefault(p => p.Id == profile.Id) ?? profile; }
-            bool withZapret = WithZapret.IsChecked == true;
+            bool withZapret = includeZapret??WithZapret.IsChecked == true;
             if (withZapret && store.Settings.AutoZapret && !session.ZapretRunning) withZapret = await Audit(cancellation);
             if (store.Settings.AutoServer) profile = await PickServer(cancellation);
             cancellation.ThrowIfCancellationRequested();

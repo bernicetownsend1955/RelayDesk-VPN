@@ -6,8 +6,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
-    <Version>0.30.3</Version>
-    <InformationalVersion>0.30.3-browser-address-and-clipboard</InformationalVersion>
+    <Version>0.31.0</Version>
+    <InformationalVersion>0.31.0-orbit</InformationalVersion>
     <ApplicationIcon>Assets\RelayDesk.ico</ApplicationIcon>
     <DefaultItemExcludes>$(DefaultItemExcludes);installer\**</DefaultItemExcludes>
   </PropertyGroup>
@@ -23,4 +23,4 @@
     <PackageReference Include="ZXing.Net" Version="0.16.11" />
   </ItemGroup>
 
-<ItemGroup><None Update="Assets\YamlDotNet.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/><None Update="Assets\ZXing.Net.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/></ItemGroup></Project>
+<ItemGroup><None Update="Assets\YamlDotNet.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/><None Update="Assets\ZXing.Net.LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"/></ItemGroup><ItemGroup><EmbeddedResource Include="Orbit\land.geojson" /><EmbeddedResource Include="LegacyLayout.xml" /></ItemGroup></Project>

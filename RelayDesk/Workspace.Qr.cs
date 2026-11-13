@@ -6,7 +6,7 @@ namespace RelayDesk;
 public partial class Workspace
 {
     public void ModernImportText(string text)=>ImportText(text);
-    public Task ModernImportSubscription(string text)=>ImportSubscription(text);
+    public Task ModernImportSubscription(string text)=>App.UseOrbitUi?ImportOrbitSubscription(text):ImportSubscription(text);
     public void ModernAcceptShare(QrShare share)
     {
         if(ModernBusy||HasChanges())throw new InvalidOperationException("Сохрани изменения и дождись завершения операции.");

@@ -9,6 +9,7 @@ namespace RelayDesk;
 /// </summary>
 public partial class App : Application
 {
+    public static bool UseOrbitUi {get;set;}=true;
     private Mutex? instance;
     bool overlayHost;
     public static bool WindowsStartupLaunch { get; private set; }

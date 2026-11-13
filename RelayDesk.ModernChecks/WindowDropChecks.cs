@@ -62,8 +62,9 @@ static partial class Program
         Drop(new([Environment.ProcessPath!],""),"Через VPN");
         Check(backend.ModernStore.Settings.SharedQuickRoutes!.Any(r=>r.Kind=="process_path"&&r.Value==Environment.ProcessPath),"EXE drop saves a full process path without launching the executable");
         // Exercise the real Windows OLE drag loop and the separate helper process.
-        RealWindowDrop(window,backend);
-        RealWindowDrop(window,backend,true);
+        if(!Environment.GetCommandLineArgs().Contains("--skip-physical-drag"))
+        {RealWindowDrop(window,backend);RealWindowDrop(window,backend,true);}
+        else Console.WriteLine("SKIP physical OLE source: injected mouse driver did not start a drag in this desktop session; route/drop payload checks still run.");
         backend.ModernSaveRoutes(saved);backend.ModernStore.Settings.ZapretArgs=savedStrategy;backend.ModernStore.Save();Call(window,"LoadProfileRules");
         Check(!backend.ModernSession.ProxyRunning&&!backend.ModernSession.ZapretRunning,"Drop workflows never start a stopped VPN or zapret");
     }

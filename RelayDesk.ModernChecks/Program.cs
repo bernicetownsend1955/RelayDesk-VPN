@@ -113,7 +113,7 @@ static partial class Program
         var fixture=new Store(folder);
         var profile=new Profile{Name="Preserved profile",Core="sing-box",Config="{\"log\":{\"level\":\"error\"},\"inbounds\":[{\"type\":\"mixed\",\"listen\":\"127.0.0.1\",\"listen_port\":32199}],\"outbounds\":[{\"type\":\"direct\",\"tag\":\"direct\"},{\"type\":\"socks\",\"tag\":\"proxy\",\"server\":\"127.0.0.1\",\"server_port\":32200}],\"route\":{\"final\":\"proxy\"}}",SubscriptionGroup="Private group",QuickRoutes=[new("domain_suffix","example.org","proxy")]};
         fixture.Profiles.Add(profile);fixture.Settings.LastConnectedProfileId=profile.Id;fixture.Settings.Subscriptions.Add(new(){Url="https://example.com/private-subscription",Group="Private group"});
-        fixture.Settings.CheckComponentUpdates=false;fixture.Settings.InterfaceMotion=false;fixture.Settings.AsciiBackground=false;fixture.Settings.QuietMode=false;fixture.Settings.TrayEnabled=false;
+        fixture.Settings.UiMode="classic";fixture.Settings.CheckComponentUpdates=false;fixture.Settings.InterfaceMotion=false;fixture.Settings.AsciiBackground=false;fixture.Settings.QuietMode=false;fixture.Settings.TrayEnabled=false;
         fixture.Save();string original=File.ReadAllText(Path.Combine(folder,"profiles.json"));string settings=File.ReadAllText(Path.Combine(folder,"settings.json"));
         var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};app.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/Theme.xaml")});
         SynchronizationContext.SetSynchronizationContext(new DispatcherSynchronizationContext(app.Dispatcher));

@@ -31,6 +31,9 @@ public class Profile
 public class Preferences
 {
     public bool InterfaceMotion { get; set; } = true;
+    public string OrbitBackground {get;set;}="earth";
+    public string UiMode {get;set;}="orbit";
+    public Dictionary<string,string> ServerCountries {get;set;}=new();
     public bool AsciiBackground { get; set; } = true;
     public bool GraphiteGlass { get; set; } = true;
     public bool QuietMode { get; set; } = true;

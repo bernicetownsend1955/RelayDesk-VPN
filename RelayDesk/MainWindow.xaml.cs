@@ -37,15 +37,20 @@ public partial class MainWindow : Window
     [DllImport("dwmapi.dll")]static extern int DwmSetWindowAttribute(IntPtr h,int a,ref int v,int size);
     public MainWindow()
     {
-        InitializeComponent();Title="RelayDesk "+AppUpdates.CurrentVersion;
+        App.UseOrbitUi=!legacyUi;InitializeComponent();if(legacyUi)LoadClassicLayout();Title="RelayDesk "+AppUpdates.CurrentVersion;
         BuildVersion.Text=Title;
-        Width=Math.Min(1320,SystemParameters.WorkArea.Width-32);Height=Math.Min(920,SystemParameters.WorkArea.Height-32);
-        MinWidth=Math.Min(1040,Width);MinHeight=Math.Min(740,Height);
+        Width=Math.Min(legacyUi?1320:1380,SystemParameters.WorkArea.Width-32);Height=Math.Min(legacyUi?920:900,SystemParameters.WorkArea.Height-32);
+        MinWidth=Math.Min(legacyUi?1040:1000,Width);MinHeight=Math.Min(legacyUi?740:680,Height);
         backend=new Workspace();backend.ModernPrepareData();BackendHost.Content=backend;
         backend.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/Theme.xaml")});
         foreach(var pair in new[]{("Page","#101318"),("Surface","#1B1E25"),("Ink","#ECEEF2"),("Muted","#9DA3AF"),("Line","#3D4350"),("Accent","#D2DAE6"),("Selected","#303641"),("Action","#444C59")})backend.Resources[pair.Item1]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(pair.Item2));
         if(backend.ThemeChoice.Parent is FrameworkElement themePanel)themePanel.Visibility=Visibility.Collapsed;
         backend.ModernEmbed();
+        if(!legacyUi)
+        {
+            backend.Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/OrbitTheme.xaml")});
+            foreach(var pair in new[]{("Page","#0C0C0C"),("Surface","#171717"),("Ink","#EEEEEE"),("Muted","#929292"),("Line","#353535"),("Accent","#DDDDDD"),("Selected","#303030"),("Action","#444444")})backend.Resources[pair.Item1]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(pair.Item2));
+        }
         backend.ModernSectionChanged+=SyncModernSection;
         AdvancedSection.ItemsSource=new[]{"Профиль: подключение и TUN","JSON / YAML","Ядра","Маршруты и диагностика","Импорт из приложений","Обновления","Профили и подписки"};
         var p=backend.ModernStore.Settings;
@@ -59,6 +64,7 @@ public partial class MainWindow : Window
         InitializeOverlay();
         InitializeWindowDrops();
         InitializeWindowClipboard();
+        InitializeOrbit();
         initialized=true;RefreshFromBackend();SelectPage(0);
         InitializeConnectionFilters();
         LoadZapretStrategies();
@@ -106,7 +112,7 @@ public partial class MainWindow : Window
         if(backend.ModernHasUpdate){Notice.Text="Доступна версия "+backend.ModernUpdateVersion+". Обновление готовится автоматически; подробности в расширенных настройках.";}
         if(JournalPanel.Visibility==Visibility.Visible)Journal.Text=backend.ModernLog;
         if(currentPage==4)RefreshConnections();
-        UpdateConnectionClocks();RefreshTrayStatus();
+        UpdateConnectionClocks();RefreshTrayStatus();RefreshOrbit();
     }
     void LoadProfileRules()
     {
@@ -145,11 +151,17 @@ public partial class MainWindow : Window
     void Navigate(object sender,RoutedEventArgs e){if(sender is Button b&&int.TryParse(b.Tag?.ToString(),out int i))SelectPage(i);}
     void SelectPage(int index)
     {
+        if(!legacyUi)
+        {
+            if(index==3){ShowOrbitSettings(true);return;}
+            ShowOrbitSettings(false);OrbitConnectionPage.Visibility=Visibility.Collapsed;
+            OrbitHome.Visibility=index==0?Visibility.Visible:Visibility.Collapsed;OrbitContentArea.Visibility=index==0?Visibility.Collapsed:Visibility.Visible;
+        }
         if(index==3)LoadSharedConnection();
         AdvancedHost.Visibility=Visibility.Collapsed;Scroller.Visibility=Visibility.Visible;
         currentPage=index;var pages=new[]{HomePage,ProfilesPage,AppsPage,SettingsPage,ConnectionsPage};for(int i=0;i<pages.Length;i++)pages[i].Visibility=i==index?Visibility.Visible:Visibility.Collapsed;
         foreach(var b in Navigation.Children.OfType<Button>()){bool active=b.Tag?.ToString()==index.ToString();b.Background=new SolidColorBrush(active?Color.FromArgb(22,230,235,245):Colors.Transparent);b.BorderBrush=new SolidColorBrush(active?Color.FromArgb(35,230,235,245):Colors.Transparent);}
-        backend.ModernConnectionsVisible=index==4;Scroller.ScrollToTop();FadeIn(PageHost);if(index==1)RefreshProfiles();if(index==4)RefreshConnections();
+        backend.ModernConnectionsVisible=index==4;Scroller.ScrollToTop();FadeIn(PageHost);if(index==1)RefreshProfiles();if(index==4)RefreshConnections();UpdateOrbitPlayback();
     }
     void ServerChanged(object sender,SelectionChangedEventArgs e)
     {
@@ -201,13 +213,14 @@ public partial class MainWindow : Window
     void EditGroups(object sender,RoutedEventArgs e)=>backend.ModernGroups();
     void AddApplication(object sender,RoutedEventArgs e)=>OpenRuleEditor(null,"process_path");
     void SettingsChanged(object sender,RoutedEventArgs e){if(!initialized||loadingUi)return;try{backend.ModernAuto(AutoServer.IsChecked==true,AutoStrategy.IsChecked==true);}catch(Exception ex){Toast(ex.Message);}}
-    void MotionChanged(object sender,RoutedEventArgs e){if(!initialized)return;state.Motion=MotionChoice.IsChecked==true;App.Motion=state.Motion&&SystemParameters.ClientAreaAnimation;BrandTitle.AnimationEnabled=App.Motion;Save();}
+    void MotionChanged(object sender,RoutedEventArgs e){if(!initialized)return;state.Motion=MotionChoice.IsChecked==true;App.Motion=state.Motion&&SystemParameters.ClientAreaAnimation;BrandTitle.AnimationEnabled=App.Motion;UpdateOrbitPlayback();Save();}
     void CityMotionChanged(object sender,RoutedEventArgs e){if(!initialized)return;state.CityMotion=CityMotionChoice.IsChecked==true;UpdateCityMotion();Save();}
-    void UpdateCityMotion()=>CityBackdrop.AnimationEnabled=state.CityMotion&&SystemParameters.ClientAreaAnimation;
+    void UpdateCityMotion(){if(!legacyUi){UpdateOrbitPlayback();return;}CityBackdrop.AnimationEnabled=state.CityMotion&&SystemParameters.ClientAreaAnimation;}
     void GlassChanged(object sender,RoutedEventArgs e){if(!initialized)return;state.Glass=GlassChoice.IsChecked==true;ApplyGlass();Save();}
     void ApplyGlass()
     {
         int dark=1,corner=2;var handle=new WindowInteropHelper(this).Handle;DwmSetWindowAttribute(handle,20,ref dark,4);DwmSetWindowAttribute(handle,33,ref corner,4);
+        if(!legacyUi){Background=Brushes.Black;Shell.Background=Brushes.Black;BackdropShade.Visibility=Visibility.Collapsed;return;}
         Background=Brushes.Transparent;bool glass=state.Glass&&!SystemParameters.HighContrast;CityBackdrop.Visibility=glass?Visibility.Visible:Visibility.Collapsed;BackdropShade.Visibility=glass?Visibility.Visible:Visibility.Collapsed;Shell.Background=new SolidColorBrush(glass?Color.FromArgb(18,13,15,20):Color.FromRgb(15,17,23));MaterialLabel.Text=glass?"Белый ASCII · чёрный фон":"Плотный фон";
     }
     static void FadeIn(FrameworkElement element,double offset=0,int duration=180){if(App.Motion)element.BeginAnimation(OpacityProperty,new DoubleAnimation(0,1,TimeSpan.FromMilliseconds(duration)));}
@@ -216,6 +229,7 @@ public partial class MainWindow : Window
     void OpenSettings(object sender,RoutedEventArgs e)=>SelectPage(3);
     void ShowAdvanced(int tab)
     {
+        if(!legacyUi){ShowOrbitSettings(false);OrbitConnectionPage.Visibility=Visibility.Collapsed;OrbitHome.Visibility=Visibility.Collapsed;OrbitContentArea.Visibility=Visibility.Visible;UpdateOrbitPlayback();}
         WakeQuietMode();Scroller.Visibility=Visibility.Collapsed;AdvancedHost.Visibility=Visibility.Visible;
         var index=Array.IndexOf(AdvancedTabs,tab);AdvancedSection.SelectedIndex=index>=0?index:0;backend.ModernOpen(tab);backend.ModernRestyle();
     }

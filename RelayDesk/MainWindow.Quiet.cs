@@ -61,14 +61,14 @@ public partial class MainWindow
     {
         quiet=true;UpdateConnectionClocks();
         QuietOverlay.Visibility=Visibility.Visible;QuietOverlay.Opacity=0;Shell.IsHitTestVisible=false;
-        BrandTitle.AnimationEnabled=false;
+        BrandTitle.AnimationEnabled=false;UpdateOrbitPlayback();
         App.Animate(Shell,OpacityProperty,.025,550);App.Animate(QuietOverlay,OpacityProperty,1,550);
     }
     void WakeQuietMode()
     {
         RegisterActivity();if(!quiet)return;
         quiet=false;QuietOverlay.BeginAnimation(OpacityProperty,null);QuietOverlay.Visibility=Visibility.Collapsed;
-        Shell.IsHitTestVisible=true;BrandTitle.AnimationEnabled=App.Motion;App.Animate(Shell,OpacityProperty,1,220);
+        Shell.IsHitTestVisible=true;BrandTitle.AnimationEnabled=App.Motion;UpdateOrbitPlayback();App.Animate(Shell,OpacityProperty,1,220);
     }
     void QuietModeChanged(object sender,RoutedEventArgs e)
     {

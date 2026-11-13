@@ -27,7 +27,7 @@ public partial class MainWindow
             if(clipboard.Image!=null){await AcceptQrImage(clipboard.Image);return;}
             if(string.IsNullOrWhiteSpace(clipboard.Text)){Toast("В буфере нет ссылки, конфигурации или QR-кода.");return;}
             string text=clipboard.Text.Trim();
-            if(currentPage!=1&&BrowserAddressDrag.Normalize(text) is string address){HandleWindowDrop(new([],address));return;}
+            if(legacyUi&&currentPage!=1&&BrowserAddressDrag.Normalize(text) is string address){HandleWindowDrop(new([],address));return;}
             await AcceptQrText(text);
         }
         catch(Exception ex){Toast(ProgramJournal.Clean(ex.Message));}

@@ -9,13 +9,14 @@ namespace RelayDesk;
 public sealed class AsciiSharksBackdrop : FrameworkElement
 {
     readonly record struct Sample(double X,double Y,double Z,double Nx,double Ny,double Nz);
-    readonly DispatcherTimer timer=new(){Interval=TimeSpan.FromMilliseconds(40)};
+    readonly RelayDesk.Orbit.CompositorLoop frames;
     readonly Stopwatch elapsed=new();
     readonly List<Sample> mesh=[];
     readonly GlyphTypeface font;
     readonly Dictionary<char,ushort> glyphs=[];
     bool animate=true;
     Window? owner;
+    public int FrameCount=>frames.Count;
     public bool TransparentBackground {get;set;}
     public bool CompactScene {get;set;}
     public bool AnimationEnabled {get=>animate;set{animate=value;UpdatePlayback();}}
@@ -27,16 +28,16 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
         font=found!;
         foreach(char c in ".,:;irsX#@")glyphs[c]=font.CharacterToGlyphMap[c];
         BuildMesh();
-        timer.Tick+=(_,_)=>InvalidateVisual();
+        frames=new RelayDesk.Orbit.CompositorLoop((_,_)=>InvalidateVisual());
         Loaded+=(_,_)=>{owner=Window.GetWindow(this);if(owner!=null)owner.StateChanged+=OwnerStateChanged;UpdatePlayback();};
-        Unloaded+=(_,_)=>{timer.Stop();elapsed.Stop();if(owner!=null)owner.StateChanged-=OwnerStateChanged;owner=null;};
+        Unloaded+=(_,_)=>{frames.SetRunning(false);elapsed.Stop();if(owner!=null)owner.StateChanged-=OwnerStateChanged;owner=null;};
         IsVisibleChanged+=(_,_)=>UpdatePlayback();
     }
     void OwnerStateChanged(object? sender,EventArgs e)=>UpdatePlayback();
     void UpdatePlayback()
     {
         bool running=animate && IsLoaded && IsVisible && owner?.WindowState!=WindowState.Minimized;
-        if(running){elapsed.Start();timer.Start();}else{timer.Stop();elapsed.Stop();}
+        if(running){elapsed.Start();frames.SetRunning(true);}else{frames.SetRunning(false);elapsed.Stop();}
         InvalidateVisual();
     }
     static double Radius(double x)
@@ -79,9 +80,6 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
         if(ActualWidth<1||ActualHeight<1)return;
         if(!TransparentBackground)dc.DrawRectangle(Brushes.Black,null,new Rect(0,0,ActualWidth,ActualHeight));
         double cellX=CompactScene?3.8:5.3,cellY=CompactScene?5.2:7.5;
-        int columns=(int)(ActualWidth/cellX)+1,rows=(int)(ActualHeight/cellY)+1;
-        var depth=new float[columns*rows];Array.Fill(depth,float.NegativeInfinity);
-        var characters=new char[depth.Length];
         double time=elapsed.Elapsed.TotalSeconds;
         double scene=Math.Min(ActualWidth/1500,ActualHeight/950);
         const string ramp=".,:;irsX#@";
@@ -100,6 +98,9 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
                 heading=.12+Math.Sin(phase)*.18;ch=Math.Cos(heading);sh=Math.Sin(heading);
                 size=Math.Min(ActualWidth/3.4,ActualHeight/1.8);
             }
+            double originX=-2*size,originY=-2*size;
+            int columns=(int)(4*size/cellX)+2,rows=(int)(4*size/cellY)+2;
+            var depth=new float[columns*rows];Array.Fill(depth,float.NegativeInfinity);var characters=new char[depth.Length];
             foreach(var p in mesh)
             {
                 double bend=Math.Max(0,-p.X+.15);
@@ -107,7 +108,7 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
                 double py=p.Y+wave;
                 double y=py*cr-p.Z*sr,z=py*sr+p.Z*cr;
                 double x=p.X*cp+z*sp;z=-p.X*sp+z*cp;
-                double sx=centerX+(x*ch-y*sh)*size,sy=centerY+(x*sh+y*ch)*size;
+                double sx=(x*ch-y*sh)*size-originX,sy=(x*sh+y*ch)*size-originY;
                 int col=(int)(sx/cellX),row=(int)(sy/cellY);
                 if(col<0||col>=columns||row<0||row>=rows)continue;
                 int at=row*columns+col;
@@ -121,19 +122,19 @@ public sealed class AsciiSharksBackdrop : FrameworkElement
                 int shade=Math.Clamp((int)(light*(ramp.Length-1)),0,ramp.Length-1);
                 characters[at]=ramp[shade];depth[at]=distance;
             }
-        }
         var indices=new List<ushort>();var advances=new List<double>();var offsets=new List<Point>();
         for(int row=0;row<rows;row++)for(int col=0;col<columns;col++)
         {
             char c=characters[row*columns+col];if(c=='\0')continue;
-            indices.Add(glyphs[c]);advances.Add(0);offsets.Add(new Point(col*cellX,-(row*cellY+(CompactScene?5:7))));
+            indices.Add(glyphs[c]);advances.Add(0);offsets.Add(new Point(originX+col*cellX,-(originY+row*cellY+(CompactScene?5:7))));
         }
         if(indices.Count>0)
         {
             var run=new GlyphRun((float)VisualTreeHelper.GetDpi(this).PixelsPerDip);
             var init=(System.ComponentModel.ISupportInitialize)run;init.BeginInit();run.GlyphTypeface=font;run.FontRenderingEmSize=CompactScene?6:8;
-            run.GlyphIndices=indices;run.AdvanceWidths=advances;run.GlyphOffsets=offsets;run.BaselineOrigin=new Point(0,0);init.EndInit();
+            run.GlyphIndices=indices;run.AdvanceWidths=advances;run.GlyphOffsets=offsets;run.BaselineOrigin=new Point(centerX,centerY);init.EndInit();
             dc.PushClip(new RectangleGeometry(new Rect(0,0,ActualWidth,ActualHeight)));dc.DrawGlyphRun(Brushes.White,run);dc.Pop();
+        }
         }
     }
 }

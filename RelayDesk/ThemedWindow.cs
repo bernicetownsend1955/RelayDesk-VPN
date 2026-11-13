@@ -10,8 +10,10 @@ public class ThemedWindow : Window
     public ThemedWindow()
     {
         Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/ModernTheme.xaml")});
+        if(App.UseOrbitUi)Resources.MergedDictionaries.Add(new ResourceDictionary{Source=new Uri("pack://application:,,,/RelayDesk;component/OrbitTheme.xaml")});
         foreach(var pair in new[]{("Page","#101318"),("Surface","#1B1E25"),("Ink","#ECEEF2"),("Muted","#9DA3AF"),("Line","#3D4350"),("Accent","#D2DAE6"),("Selected","#303641"),("Action","#444C59")})
             Resources[pair.Item1]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(pair.Item2));
+        if(App.UseOrbitUi)foreach(var pair in new[]{("Page","#0C0C0C"),("Surface","#171717"),("Ink","#EEEEEE"),("Muted","#929292"),("Line","#353535"),("Accent","#DDDDDD"),("Selected","#303030"),("Action","#444444")})Resources[pair.Item1]=new SolidColorBrush((Color)ColorConverter.ConvertFromString(pair.Item2));
         Resources["Primary"]=Resources[typeof(System.Windows.Controls.Button)];
         SetResourceReference(StyleProperty, typeof(Window));
         SourceInitialized += (_, _) => UpdateCaption();
